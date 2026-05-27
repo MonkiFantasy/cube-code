@@ -20,6 +20,9 @@ export default [
         console: 'readonly',
         MutationObserver: 'readonly',
         localStorage: 'readonly',
+        HTMLCanvasElement: 'readonly',
+        ImageData: 'readonly',
+        atob: 'readonly',
       },
     },
     rules: {

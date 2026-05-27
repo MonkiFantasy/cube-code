@@ -22,18 +22,28 @@
     <section id="encode" class="tab-content active">
       <textarea id="input-data" rows="4"></textarea>
       <button id="btn-encode">生成魔方码</button>
+      <div id="encode-toolbar" class="toolbar" style="display:none">
+        <button id="btn-color" data-i18n="colorMode">炫彩模式</button>
+        <button id="btn-cross" data-i18n="viewCross">十字展开图</button>
+      </div>
       <div id="cube-container" class="cube-container" style="display:none">
         <div id="cube-3d"></div>
         <p class="rotate-hint" id="rotate-hint">拖拽旋转立方体</p>
       </div>
+      <div id="cross-container" style="display:none"></div>
       <div id="qr-output" class="qr-grid"></div>
     </section>
 
     <section id="decode" class="tab-content">
+      <div class="toolbar">
+        <button id="btn-scan-mode" data-i18n="quickScan">快速扫描</button>
+      </div>
       <div id="scanner-area">
         <video id="camera-feed" autoplay playsinline></video>
         <canvas id="scan-canvas" style="display:none"></canvas>
+        <div id="quickscan-overlay" class="quickscan-overlay" style="display:none"></div>
       </div>
+      <p class="quickscan-hint" id="quickscan-hint" style="display:none"></p>
       <div id="scan-status">
         <p><span id="scan-label">已扫描</span>: <span id="scan-count">0</span> / 6</p>
         <div id="scanned-faces" class="face-indicators"></div>

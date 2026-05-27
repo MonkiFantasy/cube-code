@@ -17,4 +17,11 @@ export default {
   decodedResult: 'Decoded result',
   rotateHint: 'Drag to rotate the cube',
   langSwitch: '中文',
+  colorMode: 'Colorful',
+  qrMode: 'QR Mode',
+  viewCross: 'Cross Net',
+  viewGrid: 'Grid View',
+  quickScan: 'Quick Scan',
+  quickScanHint: 'Fit the cross net inside the frame',
+  scanAll: 'Scan All',
 };

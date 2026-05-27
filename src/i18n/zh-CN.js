@@ -17,4 +17,11 @@ export default {
   decodedResult: '解码结果',
   rotateHint: '拖拽旋转立方体',
   langSwitch: 'EN',
+  colorMode: '炫彩模式',
+  qrMode: '二维码模式',
+  viewCross: '十字展开图',
+  viewGrid: '宫格视图',
+  quickScan: '快速扫描',
+  quickScanHint: '将十字展开图放入取景框',
+  scanAll: '一键扫描',
 };

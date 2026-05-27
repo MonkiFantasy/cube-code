@@ -212,3 +212,108 @@ button#btn-decode:hover {
   color: #999;
   margin-top: 0.4rem;
 }
+
+/* Toolbar */
+.toolbar {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.8rem;
+  flex-wrap: wrap;
+}
+
+.toolbar button {
+  flex: 1;
+  min-width: 0;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid #ccc;
+  background: #fff;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
+
+.toolbar button:hover {
+  background: #eee;
+}
+
+.toolbar button.active {
+  background: #333;
+  color: #fff;
+  border-color: #333;
+}
+
+/* Cross net layout */
+.crossnet {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  gap: 2px;
+  margin-top: 1rem;
+  background: #ddd;
+  border: 2px solid #ddd;
+  border-radius: 6px;
+  overflow: hidden;
+  aspect-ratio: 4 / 3;
+  max-width: 480px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.crossnet-cell {
+  background: #fff;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1;
+}
+
+.crossnet-cell img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.crossnet-label {
+  position: absolute;
+  bottom: 2px;
+  right: 4px;
+  font-size: 0.65rem;
+  color: #999;
+  font-weight: bold;
+}
+
+/* Empty cells in cross net (no face at that grid position) */
+.crossnet-cell.empty {
+  background: transparent;
+  border: none;
+}
+
+/* Quick scan overlay */
+.quickscan-overlay {
+  position: absolute;
+  top: 10%;
+  left: 10%;
+  width: 80%;
+  height: 80%;
+  border: 2px dashed rgba(76, 175, 80, 0.8);
+  border-radius: 8px;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.quickscan-overlay::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(76, 175, 80, 0.05);
+  border-radius: 6px;
+}
+
+.quickscan-hint {
+  text-align: center;
+  font-size: 0.8rem;
+  color: #4caf50;
+  margin-top: 0.4rem;
+}
