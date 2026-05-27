@@ -8,19 +8,24 @@
 </head>
 <body>
   <header>
-    <h1>Cube Code</h1>
-    <p class="subtitle">3D QR code — 6x data capacity</p>
+    <h1 id="title">魔方码</h1>
+    <p class="subtitle" id="subtitle">3D 二维码 — 6 倍数据容量</p>
+    <button id="lang-switch" class="lang-btn">EN</button>
   </header>
 
   <main>
     <nav class="tabs">
-      <button class="tab active" data-tab="encode">Encode</button>
-      <button class="tab" data-tab="decode">Decode</button>
+      <button class="tab active" data-tab="encode" id="tab-encode">编码</button>
+      <button class="tab" data-tab="decode" id="tab-decode">解码</button>
     </nav>
 
     <section id="encode" class="tab-content active">
-      <textarea id="input-data" placeholder="Enter data to encode..." rows="4"></textarea>
-      <button id="btn-encode">Generate Cube Code</button>
+      <textarea id="input-data" rows="4"></textarea>
+      <button id="btn-encode">生成魔方码</button>
+      <div id="cube-container" class="cube-container" style="display:none">
+        <div id="cube-3d"></div>
+        <p class="rotate-hint" id="rotate-hint">拖拽旋转立方体</p>
+      </div>
       <div id="qr-output" class="qr-grid"></div>
     </section>
 
@@ -30,10 +35,10 @@
         <canvas id="scan-canvas" style="display:none"></canvas>
       </div>
       <div id="scan-status">
-        <p>Scanned: <span id="scan-count">0</span> / 6 faces</p>
+        <p><span id="scan-label">已扫描</span>: <span id="scan-count">0</span> / 6</p>
         <div id="scanned-faces" class="face-indicators"></div>
       </div>
-      <button id="btn-decode">Reassemble Data</button>
+      <button id="btn-decode">重组数据</button>
       <div id="decoded-output"></div>
     </section>
   </main>

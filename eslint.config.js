@@ -19,6 +19,7 @@ export default [
         atob: 'readonly',
         console: 'readonly',
         MutationObserver: 'readonly',
+        localStorage: 'readonly',
       },
     },
     rules: {

@@ -1,8 +1,34 @@
 import { encodeToCubeCode } from './encoder.js';
 import { decodeCubeCode } from './decoder.js';
 import { startScanner } from './scanner.js';
+import { createCube } from './cube3d.js';
+import { t, toggleLang } from './i18n/index.js';
 
-// Tab switching
+let cube3d = null;
+
+// --- i18n ---
+function applyLang() {
+  document.getElementById('title').textContent = t('title');
+  document.getElementById('subtitle').textContent = t('subtitle');
+  document.getElementById('tab-encode').textContent = t('tabEncode');
+  document.getElementById('tab-decode').textContent = t('tabDecode');
+  document.getElementById('input-data').placeholder = t('inputPlaceholder');
+  document.getElementById('btn-encode').textContent = t('btnEncode');
+  document.getElementById('btn-decode').textContent = t('btnDecode');
+  document.getElementById('scan-label').textContent = t('scanned');
+  document.getElementById('rotate-hint').textContent = t('rotateHint');
+  document.getElementById('lang-switch').textContent = t('langSwitch');
+  document.documentElement.lang = t('langSwitch') === 'EN' ? 'zh-CN' : 'en';
+}
+
+document.getElementById('lang-switch').addEventListener('click', () => {
+  toggleLang();
+  applyLang();
+});
+
+applyLang();
+
+// --- Tab switching ---
 document.querySelectorAll('.tab').forEach((tab) => {
   tab.addEventListener('click', () => {
     document.querySelectorAll('.tab').forEach((t) => t.classList.remove('active'));
@@ -12,34 +38,51 @@ document.querySelectorAll('.tab').forEach((tab) => {
   });
 });
 
-// Encode
+// --- Encode ---
 const btnEncode = document.getElementById('btn-encode');
 btnEncode.addEventListener('click', async () => {
   const input = document.getElementById('input-data').value.trim();
   if (!input) return;
 
   const output = document.getElementById('qr-output');
-  output.innerHTML = 'Generating...';
+  const cubeContainer = document.getElementById('cube-container');
+  const cubeEl = document.getElementById('cube-3d');
+  output.innerHTML = t('generating');
+  cubeContainer.style.display = 'none';
 
   try {
     const results = await encodeToCubeCode(input);
     output.innerHTML = '';
+
+    // Dispose old 3D cube
+    if (cube3d) {
+      cube3d.dispose();
+      cube3d = null;
+    }
+
+    const qrCanvases = [];
     for (const { faceId, canvas } of results) {
       const cell = document.createElement('div');
       cell.className = 'qr-cell';
       cell.appendChild(canvas);
       const label = document.createElement('div');
       label.className = 'face-label';
-      label.textContent = `Face ${faceId}`;
+      label.textContent = `${t('face')} ${faceId}`;
       cell.appendChild(label);
       output.appendChild(cell);
+      qrCanvases.push(canvas);
     }
+
+    // Render 3D cube
+    cubeContainer.style.display = 'block';
+    cubeEl.innerHTML = '';
+    cube3d = createCube(cubeEl, qrCanvases);
   } catch (err) {
-    output.innerHTML = `Error: ${err.message}`;
+    output.innerHTML = `${t('error')}: ${err.message}`;
   }
 });
 
-// Decode
+// --- Decode ---
 const scannedPayloads = [];
 let scanner = null;
 
@@ -55,7 +98,6 @@ for (let i = 1; i <= 6; i++) {
 const btnDecode = document.getElementById('btn-decode');
 const decodeSection = document.getElementById('decode');
 
-// Start camera when decode tab is shown
 const observer = new MutationObserver(() => {
   if (decodeSection.classList.contains('active') && !scanner) {
     startCamera();
@@ -73,14 +115,13 @@ async function startCamera() {
       updateScanCount();
     });
   } catch (err) {
-    document.getElementById('scan-status').textContent = `Camera error: ${err.message}`;
+    document.getElementById('scan-status').textContent = `${t('cameraError')}: ${err.message}`;
   }
 }
 
 function updateScanCount() {
   document.getElementById('scan-count').textContent = scannedPayloads.length;
 
-  // Mark scanned face dots
   for (const payload of scannedPayloads) {
     const allBits = Array.from(payload)
       .map((b) => b.toString(2).padStart(8, '0'))
@@ -95,7 +136,7 @@ btnDecode.addEventListener('click', () => {
   const output = document.getElementById('decoded-output');
 
   if (scannedPayloads.length === 0) {
-    output.textContent = 'No faces scanned yet.';
+    output.textContent = t('noFaces');
     return;
   }
 
@@ -104,8 +145,8 @@ btnDecode.addEventListener('click', () => {
   if (result.success) {
     output.textContent = result.data;
   } else if (result.missingFaces.length > 0) {
-    output.textContent = `Missing faces: ${result.missingFaces.join(', ')}`;
+    output.textContent = `${t('missingFaces')}: ${result.missingFaces.join(', ')}`;
   } else {
-    output.textContent = `Error: ${result.error}`;
+    output.textContent = `${t('error')}: ${result.error}`;
   }
 });
