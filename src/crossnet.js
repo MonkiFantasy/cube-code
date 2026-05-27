@@ -22,11 +22,12 @@ const NET_LAYOUT = [
  * @param {HTMLCanvasElement[]} qrCanvases - 6 canvases, index 0 = face 1
  * @returns {HTMLElement} the grid element
  */
-export function renderCrossNet(container, qrCanvases) {
+export function renderCrossNet(container, qrCanvases, { mode = 'colorful' } = {}) {
   container.innerHTML = '';
 
   const grid = document.createElement('div');
   grid.className = 'crossnet';
+  if (mode === 'inverted') grid.classList.add('inverted');
 
   // 3 rows x 4 cols grid
   for (const { face, row, col } of NET_LAYOUT) {
@@ -62,7 +63,7 @@ export function renderCrossNet(container, qrCanvases) {
  * @param {number} cellSize - size of each QR cell in pixels
  * @returns {HTMLCanvasElement}
  */
-export function renderCrossNetCanvas(qrCanvases, cellSize = 512) {
+export function renderCrossNetCanvas(qrCanvases, { cellSize = 512, mode = 'colorful' } = {}) {
   const cols = 4;
   const rows = 3;
   const gap = 8;
@@ -71,7 +72,7 @@ export function renderCrossNetCanvas(qrCanvases, cellSize = 512) {
   canvas.height = rows * cellSize + (rows - 1) * gap;
   const ctx = canvas.getContext('2d');
 
-  ctx.fillStyle = '#f5f5f5';
+  ctx.fillStyle = mode === 'inverted' ? '#1a1a1a' : '#f5f5f5';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   for (const { face, row, col } of NET_LAYOUT) {
@@ -84,7 +85,7 @@ export function renderCrossNetCanvas(qrCanvases, cellSize = 512) {
     }
 
     // Face number label
-    ctx.fillStyle = 'rgba(0,0,0,0.3)';
+    ctx.fillStyle = mode === 'inverted' ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.3)';
     ctx.font = `bold ${Math.floor(cellSize * 0.06)}px sans-serif`;
     ctx.textAlign = 'right';
     ctx.textBaseline = 'bottom';
@@ -97,8 +98,8 @@ export function renderCrossNetCanvas(qrCanvases, cellSize = 512) {
 /**
  * Download the cross net as a PNG image.
  */
-export function downloadCrossNet(qrCanvases) {
-  const canvas = renderCrossNetCanvas(qrCanvases);
+export function downloadCrossNet(qrCanvases, mode = 'colorful') {
+  const canvas = renderCrossNetCanvas(qrCanvases, { mode });
   const link = document.createElement('a');
   link.download = 'cube-code-crossnet.png';
   link.href = canvas.toDataURL('image/png');

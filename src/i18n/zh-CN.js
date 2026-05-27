@@ -25,4 +25,10 @@ export default {
   scanAll: '一键扫描',
   uploadImage: '上传图片',
   cameraMode: '摄像头',
+  colorMode: '色彩',
+  modeColorful: '炫彩',
+  modeBW: '黑白',
+  modeInverted: '异色',
+  modeInvertedColorful: '异色炫彩',
+  viewSingle: '逐面查看',
 };

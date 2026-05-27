@@ -10,6 +10,11 @@ let cube3d = null;
 let qrCanvases = [];
 let showCross = false;
 let quickScanMode = false;
+let colorMode = 'colorful'; // 'colorful' | 'bw' | 'inverted' | 'inverted-colorful'
+const COLOR_MODES = ['colorful', 'bw', 'inverted', 'inverted-colorful'];
+const COLOR_MODE_KEYS = { colorful: 'modeColorful', bw: 'modeBW', inverted: 'modeInverted', 'inverted-colorful': 'modeInvertedColorful' };
+let singleFaceIdx = 0;
+let showSingle = false;
 
 // --- i18n ---
 function applyLang() {
@@ -26,9 +31,11 @@ function applyLang() {
   document.getElementById('btn-cross').textContent = showCross ? t('viewGrid') : t('viewCross');
   document.getElementById('btn-scan-mode').textContent = quickScanMode ? t('cameraMode') : t('quickScan');
   document.getElementById('quickscan-hint').textContent = t('quickScanHint');
+  document.getElementById('btn-color-mode').textContent = t(COLOR_MODE_KEYS[colorMode]);
+  document.getElementById('btn-single').textContent = t('viewSingle');
   document.querySelectorAll('[data-i18n]').forEach((el) => {
     const key = el.dataset.i18n;
-    if (key && el.id !== 'btn-cross' && el.id !== 'btn-scan-mode') {
+    if (key && el.id !== 'btn-cross' && el.id !== 'btn-scan-mode' && el.id !== 'btn-color-mode' && el.id !== 'btn-single') {
       el.textContent = t(key);
     }
   });
@@ -56,9 +63,15 @@ document.querySelectorAll('.tab').forEach((tab) => {
 const btnEncode = document.getElementById('btn-encode');
 const btnCross = document.getElementById('btn-cross');
 const btnSave = document.getElementById('btn-save');
+const btnSingle = document.getElementById('btn-single');
 const toolbar = document.getElementById('encode-toolbar');
 const cubeContainer = document.getElementById('cube-container');
 const crossContainer = document.getElementById('cross-container');
+const singleContainer = document.getElementById('single-container');
+const singleQr = document.getElementById('single-qr');
+const faceCounter = document.getElementById('face-counter');
+const btnPrev = document.getElementById('btn-prev');
+const btnNext = document.getElementById('btn-next');
 
 btnEncode.addEventListener('click', async () => {
   const input = document.getElementById('input-data').value.trim();
@@ -68,11 +81,17 @@ btnEncode.addEventListener('click', async () => {
   output.innerHTML = t('generating');
   cubeContainer.style.display = 'none';
   crossContainer.style.display = 'none';
+  singleContainer.style.display = 'none';
   toolbar.style.display = 'none';
+  showSingle = false;
+  btnSingle.classList.remove('active');
 
   try {
-    const results = await encodeToCubeCode(input);
+    const results = await encodeToCubeCode(input, { mode: colorMode });
     output.innerHTML = '';
+    const isInverted = colorMode === 'inverted' || colorMode === 'inverted-colorful';
+    output.classList.toggle('inverted', isInverted);
+    singleContainer.classList.toggle('inverted', isInverted);
 
     if (cube3d) {
       cube3d.dispose();
@@ -96,7 +115,7 @@ btnEncode.addEventListener('click', async () => {
 
     if (showCross) {
       crossContainer.style.display = 'block';
-      renderCrossNet(crossContainer, qrCanvases);
+      renderCrossNet(crossContainer, qrCanvases, { mode: colorMode });
     } else {
       cubeContainer.style.display = 'block';
       const cubeEl = document.getElementById('cube-3d');
@@ -108,17 +127,66 @@ btnEncode.addEventListener('click', async () => {
   }
 });
 
+// Single face view
+function renderSingleFace() {
+  if (qrCanvases.length === 0) return;
+  singleQr.innerHTML = '';
+  const canvas = qrCanvases[singleFaceIdx].cloneNode(true);
+  singleQr.appendChild(canvas);
+  faceCounter.textContent = `${singleFaceIdx + 1} / 6`;
+  btnPrev.disabled = singleFaceIdx === 0;
+  btnNext.disabled = singleFaceIdx === 5;
+  singleContainer.classList.toggle('inverted', colorMode === 'inverted' || colorMode === 'inverted-colorful');
+}
+
+btnSingle.addEventListener('click', () => {
+  showSingle = !showSingle;
+  btnSingle.classList.toggle('active', showSingle);
+
+  if (showSingle) {
+    showCross = false;
+    btnCross.classList.remove('active');
+    if (cube3d) { cube3d.dispose(); cube3d = null; }
+    cubeContainer.style.display = 'none';
+    crossContainer.style.display = 'none';
+    singleContainer.style.display = 'flex';
+    document.getElementById('qr-output').style.display = 'none';
+    singleFaceIdx = 0;
+    renderSingleFace();
+  } else {
+    singleContainer.style.display = 'none';
+    document.getElementById('qr-output').style.display = '';
+    if (showCross) {
+      crossContainer.style.display = 'block';
+    } else {
+      cubeContainer.style.display = 'block';
+    }
+  }
+});
+
+btnPrev.addEventListener('click', () => {
+  if (singleFaceIdx > 0) { singleFaceIdx--; renderSingleFace(); }
+});
+
+btnNext.addEventListener('click', () => {
+  if (singleFaceIdx < 5) { singleFaceIdx++; renderSingleFace(); }
+});
+
 // Cross net toggle
 btnCross.addEventListener('click', () => {
   showCross = !showCross;
+  showSingle = false;
+  btnSingle.classList.remove('active');
   btnCross.textContent = showCross ? t('viewGrid') : t('viewCross');
   btnCross.classList.toggle('active', showCross);
+  singleContainer.style.display = 'none';
+  document.getElementById('qr-output').style.display = '';
 
   if (showCross) {
     if (cube3d) { cube3d.dispose(); cube3d = null; }
     cubeContainer.style.display = 'none';
     crossContainer.style.display = 'block';
-    renderCrossNet(crossContainer, qrCanvases);
+    renderCrossNet(crossContainer, qrCanvases, { mode: colorMode });
   } else {
     crossContainer.style.display = 'none';
     cubeContainer.style.display = 'block';
@@ -128,10 +196,50 @@ btnCross.addEventListener('click', () => {
   }
 });
 
+// Color mode toggle
+const btnColorMode = document.getElementById('btn-color-mode');
+btnColorMode.addEventListener('click', async () => {
+  const idx = COLOR_MODES.indexOf(colorMode);
+  colorMode = COLOR_MODES[(idx + 1) % COLOR_MODES.length];
+  btnColorMode.textContent = t(COLOR_MODE_KEYS[colorMode]);
+
+  const output = document.getElementById('qr-output');
+  const isInverted = colorMode === 'inverted' || colorMode === 'inverted-colorful';
+  output.classList.toggle('inverted', isInverted);
+  singleContainer.classList.toggle('inverted', isInverted);
+
+  if (qrCanvases.length === 0) return;
+
+  const input = document.getElementById('input-data').value.trim();
+  if (!input) return;
+
+  const results = await encodeToCubeCode(input, { mode: colorMode });
+  qrCanvases = [];
+  output.innerHTML = '';
+  for (const { faceId, canvas } of results) {
+    const cell = document.createElement('div');
+    cell.className = 'qr-cell';
+    cell.appendChild(canvas);
+    const label = document.createElement('div');
+    label.className = 'face-label';
+    label.textContent = `${t('face')} ${faceId}`;
+    cell.appendChild(label);
+    output.appendChild(cell);
+    qrCanvases.push(canvas);
+  }
+
+  if (showSingle) {
+    renderSingleFace();
+  }
+  if (showCross) {
+    renderCrossNet(crossContainer, qrCanvases, { mode: colorMode });
+  }
+});
+
 // Save cross net as image
 btnSave.addEventListener('click', () => {
   if (qrCanvases.length === 0) return;
-  downloadCrossNet(qrCanvases);
+  downloadCrossNet(qrCanvases, colorMode);
 });
 
 // --- Decode ---

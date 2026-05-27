@@ -121,10 +121,63 @@ button#btn-decode:hover {
 
 .qr-grid .qr-cell canvas,
 .qr-grid .qr-cell img {
+  display: block;
   width: 100%;
   height: auto;
   aspect-ratio: 1;
   object-fit: contain;
+}
+
+/* Single face view */
+.single-face {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.8rem;
+  margin-top: 1rem;
+}
+
+.single-face canvas {
+  max-width: 280px;
+  width: 100%;
+  height: auto;
+  border-radius: 8px;
+  border: 2px solid #ddd;
+}
+
+.single-face.inverted canvas {
+  border-color: #333;
+}
+
+.single-face-nav {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+
+.single-face-nav button {
+  padding: 0.5rem 1.2rem;
+  border: 1px solid #ccc;
+  background: #fff;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1rem;
+}
+
+.single-face-nav button:hover {
+  background: #eee;
+}
+
+.single-face-nav button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.single-face-nav .face-counter {
+  font-size: 1.1rem;
+  font-weight: bold;
+  min-width: 3rem;
+  text-align: center;
 }
 
 @media (max-width: 480px) {
@@ -138,6 +191,16 @@ button#btn-decode:hover {
   font-size: 0.8rem;
   color: #666;
   margin-top: 0.3rem;
+}
+
+/* Inverted mode grid */
+.qr-grid.inverted .qr-cell {
+  background: #1a1a1a;
+  border-color: #333;
+}
+
+.qr-grid.inverted .qr-cell .face-label {
+  color: rgba(255, 255, 255, 0.5);
 }
 
 #scanner-area {
@@ -299,6 +362,20 @@ button#btn-decode:hover {
 .crossnet-cell.empty {
   background: transparent;
   border: none;
+}
+
+/* Inverted mode cross net */
+.crossnet.inverted {
+  background: #333;
+  border-color: #333;
+}
+
+.crossnet.inverted .crossnet-cell {
+  background: #1a1a1a;
+}
+
+.crossnet.inverted .crossnet-label {
+  color: rgba(255, 255, 255, 0.5);
 }
 
 /* Quick scan overlay */

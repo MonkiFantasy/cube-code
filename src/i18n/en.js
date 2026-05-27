@@ -25,4 +25,10 @@ export default {
   scanAll: 'Scan All',
   uploadImage: 'Upload Image',
   cameraMode: 'Camera',
+  colorMode: 'Color',
+  modeColorful: 'Colorful',
+  modeBW: 'B&W',
+  modeInverted: 'Inverted',
+  modeInvertedColorful: 'Inverted Colorful',
+  viewSingle: 'View Single',
 };

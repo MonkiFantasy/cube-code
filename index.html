@@ -24,7 +24,17 @@
       <button id="btn-encode">生成魔方码</button>
       <div id="encode-toolbar" class="toolbar" style="display:none">
         <button id="btn-cross" data-i18n="viewCross">十字展开图</button>
+        <button id="btn-color-mode" data-i18n="modeColorful">炫彩</button>
+        <button id="btn-single" data-i18n="viewSingle">逐面查看</button>
         <button id="btn-save" data-i18n="saveImage">保存图片</button>
+      </div>
+      <div id="single-container" class="single-face" style="display:none">
+        <div id="single-qr"></div>
+        <div class="single-face-nav">
+          <button id="btn-prev">&lt;</button>
+          <span class="face-counter" id="face-counter">1 / 6</span>
+          <button id="btn-next">&gt;</button>
+        </div>
       </div>
       <div id="cube-container" class="cube-container" style="display:none">
         <div id="cube-3d"></div>
