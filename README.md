@@ -1,5 +1,7 @@
 # Cube Code
 
+> [中文文档](./README.zh-CN.md)
+
 A 3D QR code system that encodes data across six faces of a cube, providing ~6x the data capacity of a standard QR code. Runs entirely in the browser — no server needed.
 
 ## Concept
@@ -69,14 +71,17 @@ npm install
 npm run dev
 ```
 
-Open http://localhost:3000 in your browser.
+Open https://localhost:5173 in your browser (self-signed cert, accept the warning).
+
+Camera access requires HTTPS — the dev server uses a self-signed certificate automatically.
 
 ## Tech Stack
 
 - Vanilla HTML/CSS/JS — zero framework overhead
-- qrcode — QR code generation
-- jsQR — QR code scanning from camera
-- Vite — dev server and build tool
+- [qrcode](https://www.npmjs.com/package/qrcode) — QR code generation
+- [jsQR](https://www.npmjs.com/package/jsqr) — QR code scanning from camera
+- [Vite](https://vite.dev/) — dev server and build tool
+- [Vitest](https://vitest.dev/) — unit testing
 
 ## License
 
