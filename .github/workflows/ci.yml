@@ -6,6 +6,17 @@ on:
   pull_request:
     branches: [main]
 
+# Required for GitHub Pages deployment
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Only allow one deployment at a time
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
 jobs:
   lint-and-test:
     runs-on: ubuntu-latest
@@ -45,3 +56,25 @@ jobs:
         with:
           name: dist
           path: dist/
+
+  deploy:
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist/
+
+      - id: deployment
+        uses: actions/deploy-pages@v4

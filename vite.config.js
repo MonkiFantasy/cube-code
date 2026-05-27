@@ -9,6 +9,7 @@ const httpsConfig = fs.existsSync('.certs/key.pem')
   : undefined;
 
 export default defineConfig({
+  base: process.env.BASE_PATH || '/cube-code/',
   server: {
     host: '0.0.0.0',
     https: httpsConfig,

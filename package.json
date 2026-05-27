@@ -4,7 +4,7 @@
   "description": "3D QR code system — encode data across six faces of a cube",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "BASE_PATH=/ vite",
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run",
