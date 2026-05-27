@@ -3,7 +3,7 @@ import { decodeCubeCode } from './decoder.js';
 import { startScanner } from './scanner.js';
 import { createCube } from './cube3d.js';
 import { renderCrossNet, downloadCrossNet } from './crossnet.js';
-import { scanCrossNet } from './quickscan.js';
+import { scanCrossNet, scanSingle } from './quickscan.js';
 import { t, toggleLang } from './i18n/index.js';
 
 let cube3d = null;
@@ -334,7 +334,11 @@ btnDecode.addEventListener('click', () => {
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-    const result = scanCrossNet(canvas);
+    // Try single QR first, then cross net
+    let result = scanSingle(canvas);
+    if (result.found === 0) {
+      result = scanCrossNet(canvas);
+    }
     if (result.found > 0) {
       for (const [faceId, payload] of result.payloads) {
         if (!scannedPayloads.some((p) => extractFaceId(p) === faceId)) {

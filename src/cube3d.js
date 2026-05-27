@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 // Three.js BoxGeometry face order: +X, -X, +Y, -Y, +Z, -Z
 // Our face order: 1=front(+Z), 2=back(-Z), 3=top(+Y), 4=bottom(-Y), 5=left(-X), 6=right(+X)
@@ -16,12 +17,20 @@ export function createCube(container, qrCanvases) {
 
   const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 100);
   camera.position.set(2.5, 2, 2.5);
-  camera.lookAt(0, 0, 0);
 
   const renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setSize(width, height);
   renderer.setPixelRatio(window.devicePixelRatio);
   container.appendChild(renderer.domElement);
+
+  const controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.08;
+  controls.enablePan = false;
+  controls.minDistance = 2.5;
+  controls.maxDistance = 6;
+  controls.autoRotate = true;
+  controls.autoRotateSpeed = 1.5;
 
   const ambient = new THREE.AmbientLight(0xffffff, 0.8);
   scene.add(ambient);
@@ -38,52 +47,10 @@ export function createCube(container, qrCanvases) {
   const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x333333 }));
   cube.add(line);
 
-  let isDragging = false;
-  let prevX = 0;
-  let prevY = 0;
-  let rotVelX = 0.005;
-  let rotVelY = 0.008;
-
-  const onPointerDown = (e) => {
-    isDragging = true;
-    prevX = e.clientX || e.touches?.[0]?.clientX || 0;
-    prevY = e.clientY || e.touches?.[0]?.clientY || 0;
-    rotVelX = 0;
-    rotVelY = 0;
-  };
-
-  const onPointerMove = (e) => {
-    if (!isDragging) return;
-    const x = e.clientX || e.touches?.[0]?.clientX || 0;
-    const y = e.clientY || e.touches?.[0]?.clientY || 0;
-    cube.rotation.y += (x - prevX) * 0.01;
-    cube.rotation.x += (y - prevY) * 0.01;
-    rotVelX = (y - prevY) * 0.005;
-    rotVelY = (x - prevX) * 0.005;
-    prevX = x;
-    prevY = y;
-  };
-
-  const onPointerUp = () => { isDragging = false; };
-
-  renderer.domElement.addEventListener('pointerdown', onPointerDown);
-  renderer.domElement.addEventListener('pointermove', onPointerMove);
-  renderer.domElement.addEventListener('pointerup', onPointerUp);
-  renderer.domElement.addEventListener('pointerleave', onPointerUp);
-  renderer.domElement.addEventListener('touchstart', onPointerDown, { passive: true });
-  renderer.domElement.addEventListener('touchmove', onPointerMove, { passive: true });
-  renderer.domElement.addEventListener('touchend', onPointerUp);
-
   let animId;
   function animate() {
     animId = requestAnimationFrame(animate);
-    if (!isDragging) {
-      cube.rotation.y += rotVelY;
-      cube.rotation.x += rotVelX;
-      rotVelX *= 0.98;
-      rotVelY *= 0.98;
-      if (Math.abs(rotVelY) < 0.002) rotVelY = 0.005;
-    }
+    controls.update();
     renderer.render(scene, camera);
   }
   animate();
@@ -103,11 +70,8 @@ export function createCube(container, qrCanvases) {
     },
     dispose() {
       cancelAnimationFrame(animId);
+      controls.dispose();
       window.removeEventListener('resize', onResize);
-      renderer.domElement.removeEventListener('pointerdown', onPointerDown);
-      renderer.domElement.removeEventListener('pointermove', onPointerMove);
-      renderer.domElement.removeEventListener('pointerup', onPointerUp);
-      renderer.domElement.removeEventListener('pointerleave', onPointerUp);
       renderer.dispose();
       container.removeChild(renderer.domElement);
     },

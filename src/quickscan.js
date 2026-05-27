@@ -1,41 +1,28 @@
 import jsQR from 'jsqr';
 
+function getImageData(source) {
+  if (source instanceof HTMLCanvasElement) {
+    const ctx = source.getContext('2d');
+    return { imageData: ctx.getImageData(0, 0, source.width, source.height), width: source.width, height: source.height };
+  }
+  return { imageData: source, width: source.width, height: source.height };
+}
+
 /**
  * Scan a cross net image for all 6 QR codes.
  * Divides the image into 6 regions based on the cross layout and scans each.
- *
- * @param {ImageData|HTMLCanvasElement} source
- * @returns {{ found: number, payloads: Map<number, Uint8Array> }}
  */
 export function scanCrossNet(source) {
-  let imageData;
-  let width;
-  let height;
-
-  if (source instanceof HTMLCanvasElement) {
-    const ctx = source.getContext('2d');
-    width = source.width;
-    height = source.height;
-    imageData = ctx.getImageData(0, 0, width, height);
-  } else {
-    imageData = source;
-    width = source.width;
-    height = source.height;
-  }
-
+  const { imageData, width, height } = getImageData(source);
   const payloads = new Map();
 
-  // Cross net layout: 3 rows x 4 cols
-  // Row 0: col 1 = face 3
-  // Row 1: col 0 = face 5, col 1 = face 1, col 2 = face 6, col 3 = face 2
-  // Row 2: col 1 = face 4
   const regions = [
-    { face: 3, row: 0, col: 1, cols: 1 },
-    { face: 5, row: 1, col: 0, cols: 1 },
-    { face: 1, row: 1, col: 1, cols: 1 },
-    { face: 6, row: 1, col: 2, cols: 1 },
-    { face: 2, row: 1, col: 3, cols: 1 },
-    { face: 4, row: 2, col: 1, cols: 1 },
+    { row: 0, col: 1 },
+    { row: 1, col: 0 },
+    { row: 1, col: 1 },
+    { row: 1, col: 2 },
+    { row: 1, col: 3 },
+    { row: 2, col: 1 },
   ];
 
   const cellW = width / 4;
@@ -64,6 +51,29 @@ export function scanCrossNet(source) {
   }
 
   return { found: payloads.size, payloads };
+}
+
+/**
+ * Scan a single QR code from a video frame.
+ * Tries the whole frame as one image.
+ */
+export function scanSingle(source) {
+  const { imageData, width, height } = getImageData(source);
+  const code = jsQR(imageData.data, width, height);
+
+  if (code && code.data) {
+    try {
+      const bytes = base64ToBytes(code.data);
+      const faceId = extractFaceId(bytes);
+      if (faceId >= 1 && faceId <= 6) {
+        return { found: 1, payloads: new Map([[faceId, bytes]]) };
+      }
+    } catch {
+      // not a valid cube code
+    }
+  }
+
+  return { found: 0, payloads: new Map() };
 }
 
 /**
