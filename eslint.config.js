@@ -23,6 +23,8 @@ export default [
         HTMLCanvasElement: 'readonly',
         ImageData: 'readonly',
         atob: 'readonly',
+        Image: 'readonly',
+        URL: 'readonly',
       },
     },
     rules: {

@@ -57,31 +57,50 @@ export function renderCrossNet(container, qrCanvases) {
 }
 
 /**
- * Capture the cross net container as a single canvas (for quick scan).
+ * Render the cross net into a high-resolution canvas for download.
+ * @param {HTMLCanvasElement[]} qrCanvases - 6 canvases, index 0 = face 1
+ * @param {number} cellSize - size of each QR cell in pixels
+ * @returns {HTMLCanvasElement}
  */
-export function captureCrossNet(container) {
-  const img = container.querySelector('.crossnet');
-  if (!img) return null;
-
-  const rect = img.getBoundingClientRect();
+export function renderCrossNetCanvas(qrCanvases, cellSize = 512) {
+  const cols = 4;
+  const rows = 3;
+  const gap = 8;
   const canvas = document.createElement('canvas');
-  canvas.width = rect.width * window.devicePixelRatio;
-  canvas.height = rect.height * window.devicePixelRatio;
+  canvas.width = cols * cellSize + (cols - 1) * gap;
+  canvas.height = rows * cellSize + (rows - 1) * gap;
   const ctx = canvas.getContext('2d');
-  ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
 
-  // Draw background
   ctx.fillStyle = '#f5f5f5';
-  ctx.fillRect(0, 0, rect.width, rect.height);
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  // Draw all QR code images
-  const cells = img.querySelectorAll('.crossnet-cell img');
-  cells.forEach((cellImg) => {
-    const cellRect = cellImg.getBoundingClientRect();
-    const x = cellRect.left - rect.left;
-    const y = cellRect.top - rect.top;
-    ctx.drawImage(cellImg, x, y, cellRect.width, cellRect.height);
-  });
+  for (const { face, row, col } of NET_LAYOUT) {
+    const x = col * (cellSize + gap);
+    const y = row * (cellSize + gap);
+
+    const qrCanvas = qrCanvases[face - 1];
+    if (qrCanvas) {
+      ctx.drawImage(qrCanvas, x, y, cellSize, cellSize);
+    }
+
+    // Face number label
+    ctx.fillStyle = 'rgba(0,0,0,0.3)';
+    ctx.font = `bold ${Math.floor(cellSize * 0.06)}px sans-serif`;
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'bottom';
+    ctx.fillText(String(face), x + cellSize - 8, y + cellSize - 8);
+  }
 
   return canvas;
+}
+
+/**
+ * Download the cross net as a PNG image.
+ */
+export function downloadCrossNet(qrCanvases) {
+  const canvas = renderCrossNetCanvas(qrCanvases);
+  const link = document.createElement('a');
+  link.download = 'cube-code-crossnet.png';
+  link.href = canvas.toDataURL('image/png');
+  link.click();
 }

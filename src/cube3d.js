@@ -1,15 +1,8 @@
 import * as THREE from 'three';
 
-// Standard Rubik's cube face colors
-// Our face mapping: 1=front, 2=back, 3=top, 4=bottom, 5=left, 6=right
-const CUBE_COLORS = [
-  0xB71234, // face1: red
-  0xFF5800, // face2: orange
-  0xFFFFFF, // face3: white
-  0xFFD500, // face4: yellow
-  0x009B48, // face5: green
-  0x0046AD, // face6: blue
-];
+// Three.js BoxGeometry face order: +X, -X, +Y, -Y, +Z, -Z
+// Our face order: 1=front(+Z), 2=back(-Z), 3=top(+Y), 4=bottom(-Y), 5=left(-X), 6=right(+X)
+const FACE_TO_BOX = [4, 5, 2, 3, 0, 1];
 
 /**
  * Create an interactive 3D cube with QR code textures on each face.
@@ -37,8 +30,7 @@ export function createCube(container, qrCanvases) {
   scene.add(dirLight);
 
   const geometry = new THREE.BoxGeometry(1.8, 1.8, 1.8);
-  let colorful = false;
-  const materials = buildMaterials(qrCanvases, colorful);
+  const materials = buildMaterials(qrCanvases);
   const cube = new THREE.Mesh(geometry, materials);
   scene.add(cube);
 
@@ -46,7 +38,6 @@ export function createCube(container, qrCanvases) {
   const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x333333 }));
   cube.add(line);
 
-  // Drag
   let isDragging = false;
   let prevX = 0;
   let prevY = 0;
@@ -106,18 +97,9 @@ export function createCube(container, qrCanvases) {
   window.addEventListener('resize', onResize);
 
   return {
-    setColorful(on) {
-      colorful = on;
-      cube.material = buildMaterials(qrCanvases, colorful);
-    },
-    toggleColorful() {
-      colorful = !colorful;
-      cube.material = buildMaterials(qrCanvases, colorful);
-      return colorful;
-    },
     update(canvases) {
       qrCanvases = canvases;
-      cube.material = buildMaterials(qrCanvases, colorful);
+      cube.material = buildMaterials(qrCanvases);
     },
     dispose() {
       cancelAnimationFrame(animId);
@@ -132,34 +114,20 @@ export function createCube(container, qrCanvases) {
   };
 }
 
-// Three.js BoxGeometry face order: +X, -X, +Y, -Y, +Z, -Z
-// Our face order: 1=front(+Z), 2=back(-Z), 3=top(+Y), 4=bottom(-Y), 5=left(-X), 6=right(+X)
-const FACE_TO_BOX = [4, 5, 2, 3, 0, 1]; // face index (0-5) → box material index
-
-function buildMaterials(qrCanvases, colorful) {
+function buildMaterials(qrCanvases) {
   const raw = [];
   for (let i = 0; i < 6; i++) {
-    if (colorful) {
-      raw.push(
-        new THREE.MeshStandardMaterial({
-          color: CUBE_COLORS[i],
-          roughness: 0.3,
-          metalness: 0.1,
-        })
-      );
-    } else {
-      const canvas = qrCanvases[i] || createPlaceholderCanvas(i + 1);
-      const texture = new THREE.CanvasTexture(canvas);
-      texture.minFilter = THREE.LinearFilter;
-      texture.magFilter = THREE.LinearFilter;
-      raw.push(
-        new THREE.MeshStandardMaterial({
-          map: texture,
-          roughness: 0.5,
-          metalness: 0.05,
-        })
-      );
-    }
+    const canvas = qrCanvases[i] || createPlaceholderCanvas(i + 1);
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.minFilter = THREE.LinearFilter;
+    texture.magFilter = THREE.LinearFilter;
+    raw.push(
+      new THREE.MeshStandardMaterial({
+        map: texture,
+        roughness: 0.5,
+        metalness: 0.05,
+      })
+    );
   }
   return FACE_TO_BOX.map((idx) => raw[idx]);
 }

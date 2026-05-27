@@ -23,8 +23,8 @@
       <textarea id="input-data" rows="4"></textarea>
       <button id="btn-encode">生成魔方码</button>
       <div id="encode-toolbar" class="toolbar" style="display:none">
-        <button id="btn-color" data-i18n="colorMode">炫彩模式</button>
         <button id="btn-cross" data-i18n="viewCross">十字展开图</button>
+        <button id="btn-save" data-i18n="saveImage">保存图片</button>
       </div>
       <div id="cube-container" class="cube-container" style="display:none">
         <div id="cube-3d"></div>
@@ -37,7 +37,9 @@
     <section id="decode" class="tab-content">
       <div class="toolbar">
         <button id="btn-scan-mode" data-i18n="quickScan">快速扫描</button>
+        <button id="btn-upload" data-i18n="uploadImage">上传图片</button>
       </div>
+      <input type="file" id="file-input" accept="image/*" style="display:none">
       <div id="scanner-area">
         <video id="camera-feed" autoplay playsinline></video>
         <canvas id="scan-canvas" style="display:none"></canvas>

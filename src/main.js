@@ -2,7 +2,7 @@ import { encodeToCubeCode } from './encoder.js';
 import { decodeCubeCode } from './decoder.js';
 import { startScanner } from './scanner.js';
 import { createCube } from './cube3d.js';
-import { renderCrossNet } from './crossnet.js';
+import { renderCrossNet, downloadCrossNet } from './crossnet.js';
 import { scanCrossNet } from './quickscan.js';
 import { t, toggleLang } from './i18n/index.js';
 
@@ -23,13 +23,12 @@ function applyLang() {
   document.getElementById('scan-label').textContent = t('scanned');
   document.getElementById('rotate-hint').textContent = t('rotateHint');
   document.getElementById('lang-switch').textContent = t('langSwitch');
-  document.getElementById('btn-color').textContent = t('colorMode');
   document.getElementById('btn-cross').textContent = showCross ? t('viewGrid') : t('viewCross');
-  document.getElementById('btn-scan-mode').textContent = quickScanMode ? t('tabDecode') : t('quickScan');
+  document.getElementById('btn-scan-mode').textContent = quickScanMode ? t('cameraMode') : t('quickScan');
   document.getElementById('quickscan-hint').textContent = t('quickScanHint');
   document.querySelectorAll('[data-i18n]').forEach((el) => {
     const key = el.dataset.i18n;
-    if (key && el.id !== 'btn-color' && el.id !== 'btn-cross' && el.id !== 'btn-scan-mode') {
+    if (key && el.id !== 'btn-cross' && el.id !== 'btn-scan-mode') {
       el.textContent = t(key);
     }
   });
@@ -55,8 +54,8 @@ document.querySelectorAll('.tab').forEach((tab) => {
 
 // --- Encode ---
 const btnEncode = document.getElementById('btn-encode');
-const btnColor = document.getElementById('btn-color');
 const btnCross = document.getElementById('btn-cross');
+const btnSave = document.getElementById('btn-save');
 const toolbar = document.getElementById('encode-toolbar');
 const cubeContainer = document.getElementById('cube-container');
 const crossContainer = document.getElementById('cross-container');
@@ -109,13 +108,6 @@ btnEncode.addEventListener('click', async () => {
   }
 });
 
-// Colorful toggle
-btnColor.addEventListener('click', () => {
-  if (!cube3d) return;
-  const isColorful = cube3d.toggleColorful();
-  btnColor.classList.toggle('active', isColorful);
-});
-
 // Cross net toggle
 btnCross.addEventListener('click', () => {
   showCross = !showCross;
@@ -136,6 +128,12 @@ btnCross.addEventListener('click', () => {
   }
 });
 
+// Save cross net as image
+btnSave.addEventListener('click', () => {
+  if (qrCanvases.length === 0) return;
+  downloadCrossNet(qrCanvases);
+});
+
 // --- Decode ---
 const scannedPayloads = [];
 let scanner = null;
@@ -151,6 +149,8 @@ for (let i = 1; i <= 6; i++) {
 
 const btnDecode = document.getElementById('btn-decode');
 const btnScanMode = document.getElementById('btn-scan-mode');
+const btnUpload = document.getElementById('btn-upload');
+const fileInput = document.getElementById('file-input');
 const decodeSection = document.getElementById('decode');
 const quickscanOverlay = document.getElementById('quickscan-overlay');
 const quickscanHint = document.getElementById('quickscan-hint');
@@ -158,18 +158,61 @@ const quickscanHint = document.getElementById('quickscan-hint');
 // Quick scan mode toggle
 btnScanMode.addEventListener('click', () => {
   quickScanMode = !quickScanMode;
-  btnScanMode.textContent = quickScanMode ? t('tabDecode') : t('quickScan');
+  btnScanMode.textContent = quickScanMode ? t('cameraMode') : t('quickScan');
   btnScanMode.classList.toggle('active', quickScanMode);
   quickscanOverlay.style.display = quickScanMode ? 'block' : 'none';
   quickscanHint.style.display = quickScanMode ? 'block' : 'none';
 });
 
-// Scan all button for quick scan
+// Upload image for scanning
+btnUpload.addEventListener('click', () => fileInput.click());
+
+fileInput.addEventListener('change', (e) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+
+  const img = new Image();
+  img.onload = () => {
+    const canvas = document.createElement('canvas');
+    canvas.width = img.naturalWidth;
+    canvas.height = img.naturalHeight;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(img, 0, 0);
+
+    const result = scanCrossNet(canvas);
+    const output = document.getElementById('decoded-output');
+
+    if (result.found > 0) {
+      for (const [faceId, payload] of result.payloads) {
+        if (!scannedPayloads.some((p) => extractFaceId(p) === faceId)) {
+          scannedPayloads.push(payload);
+        }
+      }
+      updateScanCount();
+
+      // Auto-decode if all 6 faces found
+      if (scannedPayloads.length >= 6) {
+        const decoded = decodeCubeCode(scannedPayloads);
+        if (decoded.success) {
+          output.textContent = decoded.data;
+        }
+      } else {
+        output.textContent = `${t('scanned')}: ${result.found} / 6`;
+      }
+    } else {
+      output.textContent = t('noFaces');
+    }
+
+    fileInput.value = '';
+  };
+  img.src = URL.createObjectURL(file);
+});
+
+// Decode button
 btnDecode.addEventListener('click', () => {
   const output = document.getElementById('decoded-output');
 
   if (quickScanMode) {
-    // Quick scan: capture current video frame and scan all 6 faces
     const video = document.getElementById('camera-feed');
     const canvas = document.getElementById('scan-canvas');
     canvas.width = video.videoWidth || 640;
@@ -192,7 +235,6 @@ btnDecode.addEventListener('click', () => {
     return;
   }
 
-  // Normal decode
   if (scannedPayloads.length === 0) {
     output.textContent = t('noFaces');
     return;
