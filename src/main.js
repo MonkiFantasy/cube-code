@@ -3,7 +3,7 @@ import { decodeCubeCode } from './decoder.js';
 import { startScanner } from './scanner.js';
 import { createCube } from './cube3d.js';
 import { renderCrossNet, downloadCrossNet } from './crossnet.js';
-import { scanCrossNet, scanSingle } from './quickscan.js';
+import { scanCrossNet } from './quickscan.js';
 import { t, toggleLang } from './i18n/index.js';
 
 let cube3d = null;
@@ -266,6 +266,10 @@ btnScanMode.addEventListener('click', () => {
   btnScanMode.classList.toggle('active', quickScanMode);
   quickscanOverlay.style.display = quickScanMode ? 'block' : 'none';
   quickscanHint.style.display = quickScanMode ? 'block' : 'none';
+
+  // Restart scanner with new mode
+  if (scanner) { scanner.stop(); scanner = null; }
+  startCamera(quickScanMode);
 });
 
 // Upload image for scanning
@@ -326,33 +330,6 @@ btnReset.addEventListener('click', () => {
 btnDecode.addEventListener('click', () => {
   const output = document.getElementById('decoded-output');
 
-  if (quickScanMode) {
-    const video = document.getElementById('camera-feed');
-    const canvas = document.getElementById('scan-canvas');
-    canvas.width = video.videoWidth || 640;
-    canvas.height = video.videoHeight || 480;
-    const ctx = canvas.getContext('2d', { willReadFrequently: true });
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-    // Try single QR first, then cross net
-    let result = scanSingle(canvas);
-    if (result.found === 0) {
-      result = scanCrossNet(canvas);
-    }
-    if (result.found > 0) {
-      for (const [faceId, payload] of result.payloads) {
-        if (!scannedPayloads.some((p) => extractFaceId(p) === faceId)) {
-          scannedPayloads.push(payload);
-        }
-      }
-      updateScanCount();
-      output.textContent = `${t('scanned')}: ${result.found} / 6`;
-    } else {
-      output.textContent = t('noFaces');
-    }
-    return;
-  }
-
   if (scannedPayloads.length === 0) {
     output.textContent = t('noFaces');
     return;
@@ -371,22 +348,31 @@ btnDecode.addEventListener('click', () => {
 
 const observer = new MutationObserver(() => {
   if (decodeSection.classList.contains('active') && !scanner) {
-    startCamera();
+    startCamera(quickScanMode);
   }
 });
 observer.observe(decodeSection, { attributes: true, attributeFilter: ['class'] });
 
-async function startCamera() {
+async function startCamera(quick = false) {
   const video = document.getElementById('camera-feed');
   const canvas = document.getElementById('scan-canvas');
 
   try {
-    scanner = startScanner(video, canvas, (payloadBytes) => {
-      if (!quickScanMode) {
-        scannedPayloads.push(payloadBytes);
+    scanner = startScanner(video, canvas, (_payloadBytes, faceId) => {
+      // Deduplicate by faceId
+      if (!scannedPayloads.some((p) => extractFaceId(p) === faceId)) {
+        scannedPayloads.push(_payloadBytes);
         updateScanCount();
+
+        // Auto-decode when all 6 faces found
+        if (scannedPayloads.length >= 6) {
+          const decoded = decodeCubeCode(scannedPayloads);
+          if (decoded.success) {
+            document.getElementById('decoded-output').textContent = decoded.data;
+          }
+        }
       }
-    });
+    }, { quick });
   } catch (err) {
     document.getElementById('scan-status').textContent = `${t('cameraError')}: ${err.message}`;
   }
