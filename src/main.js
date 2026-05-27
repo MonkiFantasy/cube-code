@@ -1,7 +1,6 @@
 import { encodeToCubeCode } from './encoder.js';
 import { decodeCubeCode } from './decoder.js';
 import { startScanner } from './scanner.js';
-import { base64ToBytes } from './encoder-utils.js';
 
 // Tab switching
 document.querySelectorAll('.tab').forEach((tab) => {
