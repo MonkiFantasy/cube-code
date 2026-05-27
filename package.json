@@ -1,0 +1,24 @@
+{
+  "name": "cube-code",
+  "version": "0.1.0",
+  "description": "3D QR code system — encode data across six faces of a cube",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint src/"
+  },
+  "dependencies": {
+    "qrcode": "^1.5.4",
+    "jsqr": "^1.4.0"
+  },
+  "devDependencies": {
+    "vite": "^6.0.0",
+    "vitest": "^3.0.0",
+    "eslint": "^9.0.0"
+  },
+  "license": "MIT"
+}

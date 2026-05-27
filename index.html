@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cube Code</title>
+  <link rel="stylesheet" href="/src/style.css">
+</head>
+<body>
+  <header>
+    <h1>Cube Code</h1>
+    <p class="subtitle">3D QR code — 6x data capacity</p>
+  </header>
+
+  <main>
+    <nav class="tabs">
+      <button class="tab active" data-tab="encode">Encode</button>
+      <button class="tab" data-tab="decode">Decode</button>
+    </nav>
+
+    <section id="encode" class="tab-content active">
+      <textarea id="input-data" placeholder="Enter data to encode..." rows="4"></textarea>
+      <button id="btn-encode">Generate Cube Code</button>
+      <div id="qr-output" class="qr-grid"></div>
+    </section>
+
+    <section id="decode" class="tab-content">
+      <div id="scanner-area">
+        <video id="camera-feed" autoplay playsinline></video>
+        <canvas id="scan-canvas" style="display:none"></canvas>
+      </div>
+      <div id="scan-status">
+        <p>Scanned: <span id="scan-count">0</span> / 6 faces</p>
+        <div id="scanned-faces" class="face-indicators"></div>
+      </div>
+      <button id="btn-decode">Reassemble Data</button>
+      <div id="decoded-output"></div>
+    </section>
+  </main>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
