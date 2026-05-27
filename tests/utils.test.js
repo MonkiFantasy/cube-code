@@ -34,8 +34,7 @@ describe('buildFacePayload / parseFacePayload', () => {
     const payload = buildFacePayload(2, data); // face 3 (index 2)
     const { faceId, dataBytes } = parseFacePayload(payload);
     expect(faceId).toBe(3);
-    // bitsToBytes pads to 8-bit boundary, so trim to original length
-    expect(dataBytes.slice(0, data.length)).toEqual(data);
+    expect(dataBytes).toEqual(data);
   });
 
   it('handles face 1 (index 0)', () => {
@@ -43,7 +42,7 @@ describe('buildFacePayload / parseFacePayload', () => {
     const payload = buildFacePayload(0, data);
     const { faceId, dataBytes } = parseFacePayload(payload);
     expect(faceId).toBe(1);
-    expect(dataBytes[0]).toBe(42);
+    expect(dataBytes).toEqual(data);
   });
 
   it('handles face 6 (index 5)', () => {
@@ -51,7 +50,15 @@ describe('buildFacePayload / parseFacePayload', () => {
     const payload = buildFacePayload(5, data);
     const { faceId, dataBytes } = parseFacePayload(payload);
     expect(faceId).toBe(6);
-    expect(dataBytes[0]).toBe(0xFF);
+    expect(dataBytes).toEqual(data);
+  });
+
+  it('handles empty data', () => {
+    const data = new Uint8Array([]);
+    const payload = buildFacePayload(0, data);
+    const { faceId, dataBytes } = parseFacePayload(payload);
+    expect(faceId).toBe(1);
+    expect(dataBytes).toEqual(data);
   });
 });
 

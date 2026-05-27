@@ -19,13 +19,14 @@ export function splitData(data) {
 
 /**
  * Build the binary payload for one face:
- * [3-bit face ID][data bytes]
+ * [3-bit face ID][13-bit data length][data bytes]
  */
 export function buildFacePayload(faceIndex, dataBytes) {
   const faceId = faceIndex + 1; // 1–6
   const idBits = faceId.toString(2).padStart(3, '0');
+  const lenBits = dataBytes.length.toString(2).padStart(13, '0');
   const dataBits = bytesToBits(dataBytes);
-  const combined = idBits + dataBits;
+  const combined = idBits + lenBits + dataBits;
   return bitsToBytes(combined);
 }
 
@@ -35,7 +36,8 @@ export function buildFacePayload(faceIndex, dataBytes) {
 export function parseFacePayload(payloadBytes) {
   const allBits = bytesToBits(payloadBytes);
   const faceId = parseInt(allBits.slice(0, 3), 2);
-  const dataBits = allBits.slice(3);
+  const dataLen = parseInt(allBits.slice(3, 16), 2);
+  const dataBits = allBits.slice(16, 16 + dataLen * 8);
   const dataBytes = bitsToBytes(dataBits);
   return { faceId, dataBytes };
 }
