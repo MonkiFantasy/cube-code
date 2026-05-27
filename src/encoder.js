@@ -6,34 +6,34 @@ const PROTOCOL_VERSION = 1;
 const DATA_TYPE_TEXT = 0x00;
 
 // Rubik's cube colors for each face (face 1-6)
-// Darkened yellow/orange for reliable grayscale scanning contrast
+// dark = module color, light = background color
 const FACE_COLORS = [
   { dark: '#B71234', light: '#ffffff' }, // face1: red
   { dark: '#CC7700', light: '#ffffff' }, // face2: orange
-  { dark: '#505050', light: '#ffffff' }, // face3: white (dark gray for visibility)
+  { dark: '#505050', light: '#ffffff' }, // face3: dark gray
   { dark: '#B8860B', light: '#ffffff' }, // face4: yellow
   { dark: '#009B48', light: '#ffffff' }, // face5: green
   { dark: '#0046AD', light: '#ffffff' }, // face6: blue
 ];
 
-// Inverted colors: light modules on dark background
+// Inverted: swap dark/light — white modules on black background
 const FACE_COLORS_INVERTED = [
-  { dark: '#1a1a1a', light: '#ffffff' }, // face1: white on dark
-  { dark: '#1a1a1a', light: '#ffffff' }, // face2
-  { dark: '#1a1a1a', light: '#ffffff' }, // face3
-  { dark: '#1a1a1a', light: '#ffffff' }, // face4
-  { dark: '#1a1a1a', light: '#ffffff' }, // face5
-  { dark: '#1a1a1a', light: '#ffffff' }, // face6
+  { dark: '#ffffff', light: '#000000' },
+  { dark: '#ffffff', light: '#000000' },
+  { dark: '#ffffff', light: '#000000' },
+  { dark: '#ffffff', light: '#000000' },
+  { dark: '#ffffff', light: '#000000' },
+  { dark: '#ffffff', light: '#000000' },
 ];
 
-// Inverted colorful: white modules on colored dark backgrounds
+// Inverted colorful: white modules on colored backgrounds
 const FACE_COLORS_INVERTED_COLORFUL = [
-  { dark: '#3a0a14', light: '#ffffff' }, // face1: dark red bg
-  { dark: '#3a2200', light: '#ffffff' }, // face2: dark orange bg
-  { dark: '#0a0a0a', light: '#ffffff' }, // face3: near-black bg
-  { dark: '#3a2a04', light: '#ffffff' }, // face4: dark yellow bg
-  { dark: '#0a2a14', light: '#ffffff' }, // face5: dark green bg
-  { dark: '#0a1430', light: '#ffffff' }, // face6: dark blue bg
+  { dark: '#ffffff', light: '#B71234' }, // face1: white on red
+  { dark: '#ffffff', light: '#CC7700' }, // face2: white on orange
+  { dark: '#ffffff', light: '#505050' }, // face3: white on gray
+  { dark: '#ffffff', light: '#B8860B' }, // face4: white on yellow
+  { dark: '#ffffff', light: '#009B48' }, // face5: white on green
+  { dark: '#ffffff', light: '#0046AD' }, // face6: white on blue
 ];
 
 /**

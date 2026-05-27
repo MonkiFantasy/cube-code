@@ -31,4 +31,5 @@ export default {
   modeInverted: '异色',
   modeInvertedColorful: '异色炫彩',
   viewSingle: '逐面查看',
+  resetScan: '重新扫描',
 };

@@ -89,9 +89,6 @@ btnEncode.addEventListener('click', async () => {
   try {
     const results = await encodeToCubeCode(input, { mode: colorMode });
     output.innerHTML = '';
-    const isInverted = colorMode === 'inverted' || colorMode === 'inverted-colorful';
-    output.classList.toggle('inverted', isInverted);
-    singleContainer.classList.toggle('inverted', isInverted);
 
     if (cube3d) {
       cube3d.dispose();
@@ -131,12 +128,15 @@ btnEncode.addEventListener('click', async () => {
 function renderSingleFace() {
   if (qrCanvases.length === 0) return;
   singleQr.innerHTML = '';
-  const canvas = qrCanvases[singleFaceIdx].cloneNode(true);
-  singleQr.appendChild(canvas);
+  const src = qrCanvases[singleFaceIdx];
+  const img = document.createElement('img');
+  img.src = src.toDataURL('image/png');
+  img.style.maxWidth = '280px';
+  img.style.width = '100%';
+  singleQr.appendChild(img);
   faceCounter.textContent = `${singleFaceIdx + 1} / 6`;
   btnPrev.disabled = singleFaceIdx === 0;
   btnNext.disabled = singleFaceIdx === 5;
-  singleContainer.classList.toggle('inverted', colorMode === 'inverted' || colorMode === 'inverted-colorful');
 }
 
 btnSingle.addEventListener('click', () => {
@@ -203,11 +203,6 @@ btnColorMode.addEventListener('click', async () => {
   colorMode = COLOR_MODES[(idx + 1) % COLOR_MODES.length];
   btnColorMode.textContent = t(COLOR_MODE_KEYS[colorMode]);
 
-  const output = document.getElementById('qr-output');
-  const isInverted = colorMode === 'inverted' || colorMode === 'inverted-colorful';
-  output.classList.toggle('inverted', isInverted);
-  singleContainer.classList.toggle('inverted', isInverted);
-
   if (qrCanvases.length === 0) return;
 
   const input = document.getElementById('input-data').value.trim();
@@ -215,6 +210,7 @@ btnColorMode.addEventListener('click', async () => {
 
   const results = await encodeToCubeCode(input, { mode: colorMode });
   qrCanvases = [];
+  const output = document.getElementById('qr-output');
   output.innerHTML = '';
   for (const { faceId, canvas } of results) {
     const cell = document.createElement('div');
@@ -317,6 +313,16 @@ fileInput.addEventListener('change', (e) => {
 });
 
 // Decode button
+const btnReset = document.getElementById('btn-reset');
+
+btnReset.addEventListener('click', () => {
+  scannedPayloads.length = 0;
+  document.getElementById('scan-count').textContent = '0';
+  document.getElementById('decoded-output').textContent = '';
+  document.querySelectorAll('.face-dot').forEach((d) => d.classList.remove('scanned'));
+  if (scanner) { scanner.reset(); }
+});
+
 btnDecode.addEventListener('click', () => {
   const output = document.getElementById('decoded-output');
 

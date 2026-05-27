@@ -31,4 +31,5 @@ export default {
   modeInverted: 'Inverted',
   modeInvertedColorful: 'Inverted Colorful',
   viewSingle: 'View Single',
+  resetScan: 'Reset Scan',
 };
