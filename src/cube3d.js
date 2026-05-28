@@ -305,7 +305,7 @@ function createGeneCube(qrCanvases, geneColor) {
   return group;
 }
 
-function buildMaterials(qrCanvases, materialMode = 'standard', geneColor = 'purple') {
+function buildMaterials(qrCanvases, materialMode = 'standard') {
   const raw = [];
   for (let i = 0; i < 6; i++) {
     const canvas = qrCanvases[i] || createPlaceholderCanvas(i + 1);
