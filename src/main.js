@@ -21,6 +21,9 @@ let geneColor = 'purple';
 let numFaces = 6;
 let independentMode = false;
 let errorLevel = 'M';
+let emptyFaceStyle = 'color';
+let emptyFaceColor = '#ffffff';
+let emptyFaceImage = null;
 
 // --- i18n ---
 function applyLang() {
@@ -68,8 +71,42 @@ document.querySelectorAll('.tab').forEach((tab) => {
 
 // --- Face count selector ---
 const faceCountSelect = document.getElementById('face-count');
+const emptyFaceSection = document.getElementById('empty-face-section');
 faceCountSelect.addEventListener('change', (e) => {
   numFaces = parseInt(e.target.value, 10);
+  // Show empty face section when numFaces < 6
+  emptyFaceSection.style.display = numFaces < 6 ? 'flex' : 'none';
+});
+
+// --- Empty face controls ---
+const emptyFaceStyleSelect = document.getElementById('empty-face-style');
+const emptyFaceColorInput = document.getElementById('empty-face-color');
+const emptyFaceImageInput = document.getElementById('empty-face-image');
+const btnEmptyFaceImage = document.getElementById('btn-empty-face-image');
+
+emptyFaceStyleSelect.addEventListener('change', (e) => {
+  emptyFaceStyle = e.target.value;
+  // Show/hide image upload button
+  btnEmptyFaceImage.style.display = emptyFaceStyle === 'image' ? 'inline-block' : 'none';
+});
+
+emptyFaceColorInput.addEventListener('input', (e) => {
+  emptyFaceColor = e.target.value;
+});
+
+btnEmptyFaceImage.addEventListener('click', () => {
+  emptyFaceImageInput.click();
+});
+
+emptyFaceImageInput.addEventListener('change', (e) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+
+  const img = new Image();
+  img.onload = () => {
+    emptyFaceImage = img;
+  };
+  img.src = URL.createObjectURL(file);
 });
 
 // --- Independent mode toggle ---
@@ -122,7 +159,7 @@ btnEncode.addEventListener('click', async () => {
   btnSingle.classList.remove('active');
 
   try {
-    const results = await encodeToCubeCode(input, { mode: colorMode, icon: currentIcon, numFaces, independent: independentMode, errorLevel });
+    const results = await encodeToCubeCode(input, { mode: colorMode, icon: currentIcon, numFaces, independent: independentMode, errorLevel, emptyFaceStyle, emptyFaceColor, emptyFaceImage });
     output.innerHTML = '';
 
     if (cube3d) {
