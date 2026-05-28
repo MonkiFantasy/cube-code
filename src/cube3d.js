@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 
 // Three.js BoxGeometry face order: +X, -X, +Y, -Y, +Z, -Z
 // Our face order: 1=front(+Z), 2=back(-Z), 3=top(+Y), 4=bottom(-Y), 5=left(-X), 6=right(+X)
@@ -175,9 +176,9 @@ export function createCube(container, qrCanvases, { materialMode = 'standard', g
 }
 
 /**
- * Create gene code cube with merged modules
- * Adjacent QR modules are merged into bars for better performance
- * Uses acrylic material for translucent effect
+ * Create gene code cube with merged modules and smooth edges
+ * Adjacent QR modules are merged into bars with rounded corners
+ * Bars extend to cube edges for tight face fitting
  */
 function createGeneCube(qrCanvases, geneColor) {
   const group = new THREE.Group();
@@ -198,18 +199,31 @@ function createGeneCube(qrCanvases, geneColor) {
     opacity: 0.9,
   });
 
-  // Cube dimensions - more compact
-  const cubeSize = 1.6;
+  // Cube dimensions - compact and tight
+  const cubeSize = 1.8;
   const halfSize = cubeSize / 2;
-  const depth = 0.15; // Thickness of each bar
+  const depth = 0.12; // Thin bars
+  const roundRadius = 0.02; // Subtle rounding
+
+  // Geometry cache for performance
+  const geometryCache = new Map();
+
+  function getRoundedGeometry(width, height) {
+    const key = `${width.toFixed(3)}_${height.toFixed(3)}`;
+    if (!geometryCache.has(key)) {
+      geometryCache.set(key, new RoundedBoxGeometry(width, height, depth, 4, roundRadius));
+    }
+    return geometryCache.get(key);
+  }
 
   // QR code settings
   const qrSize = 256;
   const moduleSize = 8;
   const numModules = Math.floor(qrSize / moduleSize);
 
-  // 3D module size
+  // 3D module size - extend slightly to fill gaps
   const module3DSize = cubeSize / numModules;
+  const extendSize = module3DSize * 0.05; // Small extension to eliminate gaps
 
   // Process each face
   for (let faceIdx = 0; faceIdx < 6; faceIdx++) {
@@ -238,7 +252,7 @@ function createGeneCube(qrCanvases, geneColor) {
       }
     }
 
-    // Find horizontal runs and create merged bars
+    // Find horizontal runs and create merged bars with rounded edges
     for (let row = 0; row < numModules; row++) {
       let col = 0;
       while (col < numModules) {
@@ -251,41 +265,41 @@ function createGeneCube(qrCanvases, geneColor) {
 
           // Create bar for this run
           const runLength = endCol - col;
-          const barWidth = runLength * module3DSize;
-          const barHeight = module3DSize;
+          const barWidth = runLength * module3DSize + extendSize; // Extend to fill gaps
+          const barHeight = module3DSize + extendSize;
 
           // Center position of the bar
           const x = ((col + runLength / 2) - numModules / 2) * module3DSize;
           const y = (row - numModules / 2) * module3DSize;
           const z = halfSize;
 
-          // Create box geometry for bar
-          const geometry = new THREE.BoxGeometry(barWidth, barHeight, depth);
+          // Get or create rounded geometry
+          const geometry = getRoundedGeometry(barWidth, barHeight);
           const mesh = new THREE.Mesh(geometry, moduleMaterial);
 
           // Position and rotate based on face
           switch (boxIdx) {
             case 0: // +X face (right)
-              mesh.position.set(z, -y, -x);
+              mesh.position.set(z + depth / 2, -y, -x);
               mesh.rotation.y = Math.PI / 2;
               break;
             case 1: // -X face (left)
-              mesh.position.set(-z, -y, x);
+              mesh.position.set(-z - depth / 2, -y, x);
               mesh.rotation.y = -Math.PI / 2;
               break;
             case 2: // +Y face (top)
-              mesh.position.set(x, z, y);
+              mesh.position.set(x, z + depth / 2, y);
               mesh.rotation.x = -Math.PI / 2;
               break;
             case 3: // -Y face (bottom)
-              mesh.position.set(x, -z, -y);
+              mesh.position.set(x, -z - depth / 2, -y);
               mesh.rotation.x = Math.PI / 2;
               break;
             case 4: // +Z face (front)
-              mesh.position.set(x, -y, z);
+              mesh.position.set(x, -y, z + depth / 2);
               break;
             case 5: // -Z face (back)
-              mesh.position.set(-x, -y, -z);
+              mesh.position.set(-x, -y, -z - depth / 2);
               mesh.rotation.y = Math.PI;
               break;
           }
