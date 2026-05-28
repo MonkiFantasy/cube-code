@@ -36,14 +36,24 @@ const FACE_COLORS_INVERTED_COLORFUL = [
   { dark: '#ffffff', light: '#0046AD' }, // face6: white on blue
 ];
 
-// Gene code mode colors (tech/cyber aesthetic)
+// Season limited code colors (tech/cyber aesthetic)
 const FACE_COLORS_GENE = [
   { dark: '#00ff88', light: '#001122' }, // face1: neon green on dark blue
   { dark: '#00ccff', light: '#001122' }, // face2: cyan on dark blue
   { dark: '#ff00ff', light: '#001122' }, // face3: magenta on dark blue
-  { dark: '#ffff00', light: '#001122' }, // face4: yellow on dark blue
+  { dark: '#ffcc00', light: '#001122' }, // face4: golden yellow on dark blue (improved contrast)
   { dark: '#ff6600', light: '#001122' }, // face5: orange on dark blue
   { dark: '#ff0066', light: '#001122' }, // face6: pink on dark blue
+];
+
+// Fusion mode colors (gene code + cube fusion aesthetic)
+const FACE_COLORS_FUSION = [
+  { dark: '#00ff88', light: '#0a0a1a' }, // face1: neon green on dark
+  { dark: '#00ccff', light: '#0a0a1a' }, // face2: cyan on dark
+  { dark: '#ff00ff', light: '#0a0a1a' }, // face3: magenta on dark
+  { dark: '#ffcc00', light: '#0a0a1a' }, // face4: golden yellow on dark (improved contrast)
+  { dark: '#ff6600', light: '#0a0a1a' }, // face5: orange on dark
+  { dark: '#ff0066', light: '#0a0a1a' }, // face6: pink on dark
 ];
 
 /**
@@ -76,11 +86,12 @@ export async function encodeToCubeCode(data, { mode = 'colorful', icon = null, n
   const colorMap = mode === 'inverted' ? FACE_COLORS_INVERTED
     : mode === 'inverted-colorful' ? FACE_COLORS_INVERTED_COLORFUL
     : mode === 'gene' ? FACE_COLORS_GENE
+    : mode === 'fusion' ? FACE_COLORS_FUSION
     : FACE_COLORS;
 
-  // Use error correction level H when icon is present or gene mode to allow center overlay
+  // Use error correction level H when icon is present, gene mode, or fusion mode to allow center overlay
   // But allow user override via errorLevel parameter
-  const finalErrorLevel = (icon || mode === 'gene') ? 'H' : errorLevel;
+  const finalErrorLevel = (icon || mode === 'gene' || mode === 'fusion') ? 'H' : errorLevel;
 
   const results = [];
   for (let i = 0; i < numFaces; i++) {
@@ -105,9 +116,14 @@ export async function encodeToCubeCode(data, { mode = 'colorful', icon = null, n
       overlayIcon(canvas, icon);
     }
 
-    // Add gene code center pattern if in gene mode
-    if (mode === 'gene') {
+    // Add gene code center pattern if in gene mode or fusion mode
+    if (mode === 'gene' || mode === 'fusion') {
       overlayGenePattern(canvas, i);
+    }
+
+    // Add fusion-specific enhancements if in fusion mode
+    if (mode === 'fusion') {
+      overlayFusionEnhancements(canvas, i);
     }
 
     results.push({ faceId: i + 1, canvas });
@@ -205,6 +221,61 @@ function overlayGenePattern(canvas, faceIndex) {
   ctx.beginPath();
   ctx.arc(centerX, centerY, 4, 0, Math.PI * 2);
   ctx.fill();
+}
+
+/**
+ * Overlay fusion-specific enhancements on the QR code.
+ * Adds glowing effects and cube-specific visual elements.
+ * @param {HTMLCanvasElement} canvas - The QR code canvas
+ * @param {number} faceIndex - The face index (0-5) for color variation
+ */
+function overlayFusionEnhancements(canvas, faceIndex) {
+  const ctx = canvas.getContext('2d');
+  const size = canvas.width;
+  const centerX = size / 2;
+  const centerY = size / 2;
+
+  // Add glowing effect around the center pattern
+  const colors = ['#00ff88', '#00ccff', '#ff00ff', '#ffff00', '#ff6600', '#ff0066'];
+  const color = colors[faceIndex % colors.length];
+
+  // Create glowing effect
+  ctx.shadowColor = color;
+  ctx.shadowBlur = 15;
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2;
+
+  // Draw outer glow circle
+  ctx.beginPath();
+  ctx.arc(centerX, centerY, size * 0.35, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // Reset shadow
+  ctx.shadowBlur = 0;
+
+  // Add cube edge accents
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1;
+  ctx.globalAlpha = 0.3;
+
+  // Draw corner accents
+  const cornerSize = size * 0.1;
+  const corners = [
+    { x: 0, y: 0 },
+    { x: size, y: 0 },
+    { x: 0, y: size },
+    { x: size, y: size },
+  ];
+
+  for (const corner of corners) {
+    ctx.beginPath();
+    ctx.moveTo(corner.x, corner.y + (corner.y === 0 ? cornerSize : -cornerSize));
+    ctx.lineTo(corner.x, corner.y);
+    ctx.lineTo(corner.x + (corner.x === 0 ? cornerSize : -cornerSize), corner.y);
+    ctx.stroke();
+  }
+
+  ctx.globalAlpha = 1.0;
 }
 
 export { FACE_COLORS };
