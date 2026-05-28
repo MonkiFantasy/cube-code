@@ -106,15 +106,18 @@ button#btn-decode:hover {
 .qr-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 0.8rem;
+  gap: 0.6rem;
   margin-top: 1rem;
+  max-width: 400px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .qr-grid .qr-cell {
   background: #fff;
   border: 1px solid #ddd;
   border-radius: 6px;
-  padding: 0.5rem;
+  padding: 0.4rem;
   text-align: center;
   overflow: hidden;
 }
@@ -126,6 +129,8 @@ button#btn-decode:hover {
   height: auto;
   aspect-ratio: 1;
   object-fit: contain;
+  max-width: 120px;
+  margin: 0 auto;
 }
 
 /* Single face view */
@@ -587,17 +592,25 @@ button#btn-decode:hover {
     font-size: 0.75rem;
   }
 
-  /* QR grid */
+  /* QR grid - more compact on mobile */
   .qr-grid {
-    gap: 0.4rem;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.3rem;
+    max-width: 280px;
   }
 
   .qr-grid .qr-cell {
-    padding: 0.4rem;
+    padding: 0.25rem;
+  }
+
+  .qr-grid .qr-cell canvas,
+  .qr-grid .qr-cell img {
+    max-width: 80px;
   }
 
   .qr-grid .qr-cell .face-label {
-    font-size: 0.7rem;
+    font-size: 0.65rem;
+    margin-top: 0.2rem;
   }
 
   /* Cube container */
