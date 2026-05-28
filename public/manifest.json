@@ -1,0 +1,22 @@
+{
+  "name": "魔方码 - 3D QR Code",
+  "short_name": "Cube Code",
+  "description": "3D QR code system - encode data across six faces of a cube",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f5f5f5",
+  "theme_color": "#333333",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
