@@ -38,6 +38,7 @@ export default {
   resetScan: '重新扫描',
   standardMaterial: '标准材质',
   glassMaterial: '玻璃材质',
+  geneMaterial: '基因码材质',
   faceCount: '面数:',
   independentMode: '独立模式',
   errorLevel: '纠错级别:',

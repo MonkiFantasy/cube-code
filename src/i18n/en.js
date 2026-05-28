@@ -37,6 +37,7 @@ export default {
   removeIcon: 'Remove Icon',
   standardMaterial: 'Standard',
   glassMaterial: 'Glass',
+  geneMaterial: 'Gene Material',
   faceCount: 'Faces:',
   independentMode: 'Independent Mode',
   errorLevel: 'Error Level:',

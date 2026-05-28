@@ -405,3 +405,81 @@ button#btn-decode:hover {
   color: #4caf50;
   margin-top: 0.4rem;
 }
+
+/* Face navigation buttons */
+.face-nav {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
+  margin-top: 0.8rem;
+  flex-wrap: wrap;
+}
+
+.face-nav button {
+  padding: 0.4rem 0.8rem;
+  border: 1px solid #ccc;
+  background: #fff;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.82rem;
+  min-width: 40px;
+}
+
+.face-nav button:hover {
+  background: #eee;
+}
+
+/* Face count and independent mode selectors */
+.face-count-selector,
+.independent-mode,
+.error-level-selector {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.face-count-selector select,
+.error-level-selector select {
+  padding: 0.3rem 0.5rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 0.9rem;
+}
+
+.independent-mode label {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  cursor: pointer;
+}
+
+/* Gene color picker */
+.gene-color-picker {
+  display: flex;
+  gap: 0.3rem;
+  align-items: center;
+}
+
+.gene-color-btn {
+  width: 28px;
+  height: 28px;
+  border: 2px solid #ccc;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.7rem;
+  color: white;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+  transition: transform 0.1s, border-color 0.2s;
+}
+
+.gene-color-btn:hover {
+  transform: scale(1.1);
+}
+
+.gene-color-btn.active {
+  border-color: #333;
+  transform: scale(1.15);
+  box-shadow: 0 0 0 2px rgba(51, 51, 51, 0.3);
+}

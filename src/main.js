@@ -17,6 +17,7 @@ let singleFaceIdx = 0;
 let showSingle = false;
 let currentIcon = null;
 let materialMode = 'standard';
+let geneColor = 'purple';
 let numFaces = 6;
 let independentMode = false;
 let errorLevel = 'M';
@@ -333,21 +334,54 @@ btnIcon.addEventListener('dblclick', () => {
   }
 });
 
-// Material mode toggle (standard/glass)
+// Material mode toggle (standard/glass/gene)
+const MATERIAL_MODES = ['standard', 'glass', 'gene'];
+const MATERIAL_MODE_KEYS = { standard: 'standardMaterial', glass: 'glassMaterial', gene: 'geneMaterial' };
+
 const btnMaterial = document.getElementById('btn-material');
 btnMaterial.addEventListener('click', () => {
-  materialMode = materialMode === 'standard' ? 'glass' : 'standard';
-  btnMaterial.textContent = materialMode === 'glass' ? t('glassMaterial') : t('standardMaterial');
-  btnMaterial.classList.toggle('active', materialMode === 'glass');
+  const idx = MATERIAL_MODES.indexOf(materialMode);
+  materialMode = MATERIAL_MODES[(idx + 1) % MATERIAL_MODES.length];
+  btnMaterial.textContent = t(MATERIAL_MODE_KEYS[materialMode]);
+  btnMaterial.classList.toggle('active', materialMode !== 'standard');
+
+  // Show/hide gene color picker
+  const geneColorPicker = document.getElementById('gene-color-picker');
+  if (geneColorPicker) {
+    geneColorPicker.style.display = materialMode === 'gene' ? 'flex' : 'none';
+  }
 
   // Update cube with new material mode
   if (cube3d && qrCanvases.length > 0) {
     const cubeEl = document.getElementById('cube-3d');
     cube3d.dispose();
     cubeEl.innerHTML = '';
-    cube3d = createCube(cubeEl, qrCanvases, { materialMode });
+    cube3d = createCube(cubeEl, qrCanvases, { materialMode, geneColor });
   }
 });
+
+// Gene color picker
+const geneColorPicker = document.getElementById('gene-color-picker');
+if (geneColorPicker) {
+  geneColorPicker.addEventListener('click', (e) => {
+    const btn = e.target.closest('.gene-color-btn');
+    if (!btn) return;
+
+    geneColor = btn.dataset.color;
+
+    // Update active state
+    geneColorPicker.querySelectorAll('.gene-color-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+
+    // Update cube with new color
+    if (cube3d && qrCanvases.length > 0 && materialMode === 'gene') {
+      const cubeEl = document.getElementById('cube-3d');
+      cube3d.dispose();
+      cubeEl.innerHTML = '';
+      cube3d = createCube(cubeEl, qrCanvases, { materialMode, geneColor });
+    }
+  });
+}
 
 // Save cross net as image
 btnSave.addEventListener('click', () => {
