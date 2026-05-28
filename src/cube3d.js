@@ -176,9 +176,9 @@ export function createCube(container, qrCanvases, { materialMode = 'standard', g
 }
 
 /**
- * Create gene code cube with merged modules and smooth edges
- * Adjacent QR modules are merged into bars with rounded corners
- * Bars extend to cube edges for tight face fitting
+ * Create gene code cube with water-drop merged modules
+ * Connected modules (horizontal AND vertical) merge into smooth shapes
+ * Internal light source for better display
  */
 function createGeneCube(qrCanvases, geneColor) {
   const group = new THREE.Group();
@@ -190,22 +190,23 @@ function createGeneCube(qrCanvases, geneColor) {
     transmission: 0.8,
     roughness: 0.1,
     metalness: 0.0,
-    ior: 1.49, // Acrylic IOR
+    ior: 1.49,
     thickness: 0.5,
     envMapIntensity: 0.8,
     clearcoat: 1.0,
     clearcoatRoughness: 0.05,
     transparent: true,
     opacity: 0.9,
+    side: THREE.DoubleSide,
   });
 
-  // Cube dimensions - compact and tight
+  // Cube dimensions - tight fit
   const cubeSize = 1.8;
   const halfSize = cubeSize / 2;
-  const depth = 0.12; // Thin bars
-  const roundRadius = 0.02; // Subtle rounding
+  const depth = 0.1;
+  const roundRadius = 0.03;
 
-  // Geometry cache for performance
+  // Geometry cache
   const geometryCache = new Map();
 
   function getRoundedGeometry(width, height) {
@@ -220,10 +221,7 @@ function createGeneCube(qrCanvases, geneColor) {
   const qrSize = 256;
   const moduleSize = 8;
   const numModules = Math.floor(qrSize / moduleSize);
-
-  // 3D module size - extend slightly to fill gaps
   const module3DSize = cubeSize / numModules;
-  const extendSize = module3DSize * 0.05; // Small extension to eliminate gaps
 
   // Process each face
   for (let faceIdx = 0; faceIdx < 6; faceIdx++) {
@@ -252,66 +250,105 @@ function createGeneCube(qrCanvases, geneColor) {
       }
     }
 
-    // Find horizontal runs and create merged bars with rounded edges
+    // Find connected components using flood fill
+    const visited = Array.from({ length: numModules }, () => Array(numModules).fill(false));
+
+    function floodFill(row, col, component) {
+      if (row < 0 || row >= numModules || col < 0 || col >= numModules) return;
+      if (visited[row][col] || !grid[row][col]) return;
+
+      visited[row][col] = true;
+      component.push({ row, col });
+
+      // 4-directional flood fill (horizontal and vertical)
+      floodFill(row - 1, col, component);
+      floodFill(row + 1, col, component);
+      floodFill(row, col - 1, component);
+      floodFill(row, col + 1, component);
+    }
+
+    // Find all connected components
+    const components = [];
     for (let row = 0; row < numModules; row++) {
-      let col = 0;
-      while (col < numModules) {
-        if (grid[row][col]) {
-          // Find end of horizontal run
-          let endCol = col;
-          while (endCol < numModules && grid[row][endCol]) {
-            endCol++;
-          }
-
-          // Create bar for this run
-          const runLength = endCol - col;
-          const barWidth = runLength * module3DSize + extendSize; // Extend to fill gaps
-          const barHeight = module3DSize + extendSize;
-
-          // Center position of the bar
-          const x = ((col + runLength / 2) - numModules / 2) * module3DSize;
-          const y = (row - numModules / 2) * module3DSize;
-          const z = halfSize;
-
-          // Get or create rounded geometry
-          const geometry = getRoundedGeometry(barWidth, barHeight);
-          const mesh = new THREE.Mesh(geometry, moduleMaterial);
-
-          // Position and rotate based on face
-          switch (boxIdx) {
-            case 0: // +X face (right)
-              mesh.position.set(z + depth / 2, -y, -x);
-              mesh.rotation.y = Math.PI / 2;
-              break;
-            case 1: // -X face (left)
-              mesh.position.set(-z - depth / 2, -y, x);
-              mesh.rotation.y = -Math.PI / 2;
-              break;
-            case 2: // +Y face (top)
-              mesh.position.set(x, z + depth / 2, y);
-              mesh.rotation.x = -Math.PI / 2;
-              break;
-            case 3: // -Y face (bottom)
-              mesh.position.set(x, -z - depth / 2, -y);
-              mesh.rotation.x = Math.PI / 2;
-              break;
-            case 4: // +Z face (front)
-              mesh.position.set(x, -y, z + depth / 2);
-              break;
-            case 5: // -Z face (back)
-              mesh.position.set(-x, -y, -z - depth / 2);
-              mesh.rotation.y = Math.PI;
-              break;
-          }
-
-          group.add(mesh);
-          col = endCol;
-        } else {
-          col++;
+      for (let col = 0; col < numModules; col++) {
+        if (grid[row][col] && !visited[row][col]) {
+          const component = [];
+          floodFill(row, col, component);
+          components.push(component);
         }
       }
     }
+
+    // Create merged shape for each connected component
+    for (const component of components) {
+      if (component.length === 0) continue;
+
+      // Calculate bounding box
+      let minRow = numModules, maxRow = 0, minCol = numModules, maxCol = 0;
+      for (const { row, col } of component) {
+        minRow = Math.min(minRow, row);
+        maxRow = Math.max(maxRow, row);
+        minCol = Math.min(minCol, col);
+        maxCol = Math.max(maxCol, col);
+      }
+
+      // Calculate dimensions
+      const width = (maxCol - minCol + 1) * module3DSize;
+      const height = (maxRow - minRow + 1) * module3DSize;
+      const centerX = ((minCol + maxCol) / 2 - numModules / 2) * module3DSize;
+      const centerY = ((minRow + maxRow) / 2 - numModules / 2) * module3DSize;
+      const z = halfSize;
+
+      // Create rounded box for this component
+      const geometry = getRoundedGeometry(width, height);
+      const mesh = new THREE.Mesh(geometry, moduleMaterial);
+
+      // Position and rotate based on face
+      switch (boxIdx) {
+        case 0: // +X face (right)
+          mesh.position.set(z + depth / 2, -centerY, -centerX);
+          mesh.rotation.y = Math.PI / 2;
+          break;
+        case 1: // -X face (left)
+          mesh.position.set(-z - depth / 2, -centerY, centerX);
+          mesh.rotation.y = -Math.PI / 2;
+          break;
+        case 2: // +Y face (top)
+          mesh.position.set(centerX, z + depth / 2, centerY);
+          mesh.rotation.x = -Math.PI / 2;
+          break;
+        case 3: // -Y face (bottom)
+          mesh.position.set(centerX, -z - depth / 2, -centerY);
+          mesh.rotation.x = Math.PI / 2;
+          break;
+        case 4: // +Z face (front)
+          mesh.position.set(centerX, -centerY, z + depth / 2);
+          break;
+        case 5: // -Z face (back)
+          mesh.position.set(-centerX, -centerY, -z - depth / 2);
+          mesh.rotation.y = Math.PI;
+          break;
+      }
+
+      group.add(mesh);
+    }
   }
+
+  // Add internal light source for glow effect
+  const lightColor = color;
+  const pointLight = new THREE.PointLight(lightColor, 2, 3);
+  pointLight.position.set(0, 0, 0);
+  group.add(pointLight);
+
+  // Add subtle ambient glow sphere
+  const glowGeometry = new THREE.SphereGeometry(0.3, 16, 16);
+  const glowMaterial = new THREE.MeshBasicMaterial({
+    color: lightColor,
+    transparent: true,
+    opacity: 0.3,
+  });
+  const glowSphere = new THREE.Mesh(glowGeometry, glowMaterial);
+  group.add(glowSphere);
 
   return group;
 }
