@@ -21,13 +21,42 @@
 
     <section id="encode" class="tab-content active">
       <textarea id="input-data" rows="4"></textarea>
+      <div class="face-count-selector">
+        <label for="face-count" data-i18n="faceCount">面数:</label>
+        <select id="face-count">
+          <option value="1">1</option>
+          <option value="2">2</option>
+          <option value="3">3</option>
+          <option value="4">4</option>
+          <option value="5">5</option>
+          <option value="6" selected>6</option>
+        </select>
+      </div>
+      <div class="independent-mode">
+        <label>
+          <input type="checkbox" id="independent-mode">
+          <span data-i18n="independentMode">独立模式</span>
+        </label>
+      </div>
+      <div class="error-level-selector">
+        <label for="error-level" data-i18n="errorLevel">纠错级别:</label>
+        <select id="error-level">
+          <option value="L">L (7%)</option>
+          <option value="M" selected>M (15%)</option>
+          <option value="Q">Q (25%)</option>
+          <option value="H">H (30%)</option>
+        </select>
+      </div>
       <button id="btn-encode">生成魔方码</button>
       <div id="encode-toolbar" class="toolbar" style="display:none">
         <button id="btn-cross" data-i18n="viewCross">十字展开图</button>
         <button id="btn-color-mode" data-i18n="modeColorful">炫彩</button>
         <button id="btn-single" data-i18n="viewSingle">逐面查看</button>
+        <button id="btn-icon" data-i18n="addIcon">添加图标</button>
+        <button id="btn-material" data-i18n="standardMaterial">标准材质</button>
         <button id="btn-save" data-i18n="saveImage">保存图片</button>
       </div>
+      <input type="file" id="icon-input" accept="image/*" style="display:none">
       <div id="single-container" class="single-face" style="display:none">
         <div id="single-qr"></div>
         <div class="single-face-nav">
@@ -39,6 +68,14 @@
       <div id="cube-container" class="cube-container" style="display:none">
         <div id="cube-3d"></div>
         <p class="rotate-hint" id="rotate-hint">拖拽旋转立方体</p>
+        <div class="face-nav">
+          <button id="snap-front" data-face="front" data-i18n="faceFront">前</button>
+          <button id="snap-back" data-face="back" data-i18n="faceBack">后</button>
+          <button id="snap-top" data-face="top" data-i18n="faceTop">上</button>
+          <button id="snap-bottom" data-face="bottom" data-i18n="faceBottom">下</button>
+          <button id="snap-left" data-face="left" data-i18n="faceLeft">左</button>
+          <button id="snap-right" data-face="right" data-i18n="faceRight">右</button>
+        </div>
       </div>
       <div id="cross-container" style="display:none"></div>
       <div id="qr-output" class="qr-grid"></div>

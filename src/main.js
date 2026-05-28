@@ -10,11 +10,16 @@ let cube3d = null;
 let qrCanvases = [];
 let showCross = false;
 let quickScanMode = false;
-let colorMode = 'colorful'; // 'colorful' | 'bw' | 'inverted' | 'inverted-colorful'
-const COLOR_MODES = ['colorful', 'bw', 'inverted', 'inverted-colorful'];
-const COLOR_MODE_KEYS = { colorful: 'modeColorful', bw: 'modeBW', inverted: 'modeInverted', 'inverted-colorful': 'modeInvertedColorful' };
+let colorMode = 'colorful'; // 'colorful' | 'bw' | 'inverted' | 'inverted-colorful' | 'gene'
+const COLOR_MODES = ['colorful', 'bw', 'inverted', 'inverted-colorful', 'gene'];
+const COLOR_MODE_KEYS = { colorful: 'modeColorful', bw: 'modeBW', inverted: 'modeInverted', 'inverted-colorful': 'modeInvertedColorful', gene: 'modeGene' };
 let singleFaceIdx = 0;
 let showSingle = false;
+let currentIcon = null;
+let materialMode = 'standard';
+let numFaces = 6;
+let independentMode = false;
+let errorLevel = 'M';
 
 // --- i18n ---
 function applyLang() {
@@ -33,6 +38,7 @@ function applyLang() {
   document.getElementById('quickscan-hint').textContent = t('quickScanHint');
   document.getElementById('btn-color-mode').textContent = t(COLOR_MODE_KEYS[colorMode]);
   document.getElementById('btn-single').textContent = t('viewSingle');
+  document.getElementById('btn-icon').textContent = currentIcon ? t('removeIcon') : t('addIcon');
   document.querySelectorAll('[data-i18n]').forEach((el) => {
     const key = el.dataset.i18n;
     if (key && el.id !== 'btn-cross' && el.id !== 'btn-scan-mode' && el.id !== 'btn-color-mode' && el.id !== 'btn-single') {
@@ -56,6 +62,34 @@ document.querySelectorAll('.tab').forEach((tab) => {
     document.querySelectorAll('.tab-content').forEach((c) => c.classList.remove('active'));
     tab.classList.add('active');
     document.getElementById(tab.dataset.tab).classList.add('active');
+  });
+});
+
+// --- Face count selector ---
+const faceCountSelect = document.getElementById('face-count');
+faceCountSelect.addEventListener('change', (e) => {
+  numFaces = parseInt(e.target.value, 10);
+});
+
+// --- Independent mode toggle ---
+const independentModeCheckbox = document.getElementById('independent-mode');
+independentModeCheckbox.addEventListener('change', (e) => {
+  independentMode = e.target.checked;
+});
+
+// --- Error level selector ---
+const errorLevelSelect = document.getElementById('error-level');
+errorLevelSelect.addEventListener('change', (e) => {
+  errorLevel = e.target.value;
+});
+
+// --- Face navigation buttons ---
+document.querySelectorAll('.face-nav button').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    const face = btn.dataset.face;
+    if (cube3d && face) {
+      cube3d.snapToFace(face);
+    }
   });
 });
 
@@ -87,7 +121,7 @@ btnEncode.addEventListener('click', async () => {
   btnSingle.classList.remove('active');
 
   try {
-    const results = await encodeToCubeCode(input, { mode: colorMode });
+    const results = await encodeToCubeCode(input, { mode: colorMode, icon: currentIcon, numFaces, independent: independentMode, errorLevel });
     output.innerHTML = '';
 
     if (cube3d) {
@@ -117,7 +151,7 @@ btnEncode.addEventListener('click', async () => {
       cubeContainer.style.display = 'block';
       const cubeEl = document.getElementById('cube-3d');
       cubeEl.innerHTML = '';
-      cube3d = createCube(cubeEl, qrCanvases);
+      cube3d = createCube(cubeEl, qrCanvases, { materialMode });
     }
   } catch (err) {
     output.innerHTML = `${t('error')}: ${err.message}`;
@@ -134,9 +168,9 @@ function renderSingleFace() {
   img.style.maxWidth = '280px';
   img.style.width = '100%';
   singleQr.appendChild(img);
-  faceCounter.textContent = `${singleFaceIdx + 1} / 6`;
+  faceCounter.textContent = `${singleFaceIdx + 1} / ${qrCanvases.length}`;
   btnPrev.disabled = singleFaceIdx === 0;
-  btnNext.disabled = singleFaceIdx === 5;
+  btnNext.disabled = singleFaceIdx === qrCanvases.length - 1;
 }
 
 btnSingle.addEventListener('click', () => {
@@ -169,7 +203,7 @@ btnPrev.addEventListener('click', () => {
 });
 
 btnNext.addEventListener('click', () => {
-  if (singleFaceIdx < 5) { singleFaceIdx++; renderSingleFace(); }
+  if (singleFaceIdx < qrCanvases.length - 1) { singleFaceIdx++; renderSingleFace(); }
 });
 
 // Cross net toggle
@@ -192,7 +226,7 @@ btnCross.addEventListener('click', () => {
     cubeContainer.style.display = 'block';
     const cubeEl = document.getElementById('cube-3d');
     cubeEl.innerHTML = '';
-    cube3d = createCube(cubeEl, qrCanvases);
+    cube3d = createCube(cubeEl, qrCanvases, { materialMode });
   }
 });
 
@@ -208,7 +242,7 @@ btnColorMode.addEventListener('click', async () => {
   const input = document.getElementById('input-data').value.trim();
   if (!input) return;
 
-  const results = await encodeToCubeCode(input, { mode: colorMode });
+  const results = await encodeToCubeCode(input, { mode: colorMode, icon: currentIcon });
   qrCanvases = [];
   const output = document.getElementById('qr-output');
   output.innerHTML = '';
@@ -229,6 +263,89 @@ btnColorMode.addEventListener('click', async () => {
   }
   if (showCross) {
     renderCrossNet(crossContainer, qrCanvases, { mode: colorMode });
+  }
+});
+
+// Icon upload
+const btnIcon = document.getElementById('btn-icon');
+const iconInput = document.getElementById('icon-input');
+
+btnIcon.addEventListener('click', () => {
+  iconInput.click();
+});
+
+iconInput.addEventListener('change', (e) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+
+  const img = new Image();
+  img.onload = () => {
+    currentIcon = img;
+    btnIcon.classList.add('active');
+
+    // Re-encode with icon if data exists
+    const input = document.getElementById('input-data').value.trim();
+    if (input && qrCanvases.length > 0) {
+      reencodeWithIcon();
+    }
+  };
+  img.src = URL.createObjectURL(file);
+  iconInput.value = '';
+});
+
+async function reencodeWithIcon() {
+  const input = document.getElementById('input-data').value.trim();
+  if (!input) return;
+
+  const results = await encodeToCubeCode(input, { mode: colorMode, icon: currentIcon });
+  qrCanvases = [];
+  const output = document.getElementById('qr-output');
+  output.innerHTML = '';
+  for (const { faceId, canvas } of results) {
+    const cell = document.createElement('div');
+    cell.className = 'qr-cell';
+    cell.appendChild(canvas);
+    const label = document.createElement('div');
+    label.className = 'face-label';
+    label.textContent = `${t('face')} ${faceId}`;
+    cell.appendChild(label);
+    output.appendChild(cell);
+    qrCanvases.push(canvas);
+  }
+
+  if (showSingle) {
+    renderSingleFace();
+  }
+  if (showCross) {
+    renderCrossNet(crossContainer, qrCanvases, { mode: colorMode });
+  }
+}
+
+// Remove icon
+btnIcon.addEventListener('dblclick', () => {
+  currentIcon = null;
+  btnIcon.classList.remove('active');
+
+  // Re-encode without icon if data exists
+  const input = document.getElementById('input-data').value.trim();
+  if (input && qrCanvases.length > 0) {
+    reencodeWithIcon();
+  }
+});
+
+// Material mode toggle (standard/glass)
+const btnMaterial = document.getElementById('btn-material');
+btnMaterial.addEventListener('click', () => {
+  materialMode = materialMode === 'standard' ? 'glass' : 'standard';
+  btnMaterial.textContent = materialMode === 'glass' ? t('glassMaterial') : t('standardMaterial');
+  btnMaterial.classList.toggle('active', materialMode === 'glass');
+
+  // Update cube with new material mode
+  if (cube3d && qrCanvases.length > 0) {
+    const cubeEl = document.getElementById('cube-3d');
+    cubeEl.innerHTML = '';
+    cube3d.dispose();
+    cube3d = createCube(cubeEl, qrCanvases, { materialMode });
   }
 });
 
@@ -299,8 +416,8 @@ fileInput.addEventListener('change', (e) => {
       updateScanCount();
 
       // Auto-decode if all 6 faces found
-      if (scannedPayloads.length >= 6) {
-        const decoded = decodeCubeCode(scannedPayloads);
+      if (scannedPayloads.length >= numFaces) {
+        const decoded = decodeCubeCode(scannedPayloads, numFaces);
         if (decoded.success) {
           output.textContent = decoded.data;
         }
@@ -335,7 +452,7 @@ btnDecode.addEventListener('click', () => {
     return;
   }
 
-  const decoded = decodeCubeCode(scannedPayloads);
+  const decoded = decodeCubeCode(scannedPayloads, numFaces);
 
   if (decoded.success) {
     output.textContent = decoded.data;
@@ -365,8 +482,8 @@ async function startCamera(quick = false) {
         updateScanCount();
 
         // Auto-decode when all 6 faces found
-        if (scannedPayloads.length >= 6) {
-          const decoded = decodeCubeCode(scannedPayloads);
+        if (scannedPayloads.length >= numFaces) {
+          const decoded = decodeCubeCode(scannedPayloads, numFaces);
           if (decoded.success) {
             document.getElementById('decoded-output').textContent = decoded.data;
           }
@@ -379,7 +496,7 @@ async function startCamera(quick = false) {
 }
 
 function updateScanCount() {
-  document.getElementById('scan-count').textContent = scannedPayloads.length;
+  document.getElementById('scan-count').textContent = `${scannedPayloads.length} / ${numFaces}`;
 
   for (const payload of scannedPayloads) {
     const faceId = extractFaceId(payload);
