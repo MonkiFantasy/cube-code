@@ -1,14 +1,16 @@
-const NUM_FACES = 6;
+const DEFAULT_NUM_FACES = 6;
 
 /**
- * Split data into 6 chunks.
+ * Split data into chunks.
  * Each chunk gets a 3-bit face ID prepended (001–110).
+ * @param {Uint8Array} data - The data to split
+ * @param {number} numFaces - Number of faces (1-6, default 6)
  */
-export function splitData(data) {
+export function splitData(data, numFaces = DEFAULT_NUM_FACES) {
   const chunks = [];
-  const chunkSize = Math.ceil(data.length / NUM_FACES);
+  const chunkSize = Math.ceil(data.length / numFaces);
 
-  for (let i = 0; i < NUM_FACES; i++) {
+  for (let i = 0; i < numFaces; i++) {
     const start = i * chunkSize;
     const end = Math.min(start + chunkSize, data.length);
     chunks.push(data.slice(start, end));
