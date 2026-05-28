@@ -1,7 +1,6 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
-import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 
 // Three.js BoxGeometry face order: +X, -X, +Y, -Y, +Z, -Z
 // Our face order: 1=front(+Z), 2=back(-Z), 3=top(+Y), 4=bottom(-Y), 5=left(-X), 6=right(+X)
@@ -176,38 +175,41 @@ export function createCube(container, qrCanvases, { materialMode = 'standard', g
 }
 
 /**
- * Create gene code cube with individual modules
- * Each QR module becomes a small 3D cube, white areas are hollow
+ * Create gene code cube with merged modules
+ * Adjacent QR modules are merged into bars for better performance
+ * Uses acrylic material for translucent effect
  */
 function createGeneCube(qrCanvases, geneColor) {
   const group = new THREE.Group();
   const color = GENE_COLORS.find(c => c.name === geneColor)?.color || '#8B5CF6';
 
-  // Gene code material - translucent colored glass
+  // Acrylic material - translucent with subtle reflections
   const moduleMaterial = new THREE.MeshPhysicalMaterial({
     color: color,
-    transmission: 0.7,
-    roughness: 0.15,
-    metalness: 0.3,
-    ior: 1.5,
-    thickness: 0.3,
-    envMapIntensity: 1.0,
+    transmission: 0.8,
+    roughness: 0.1,
+    metalness: 0.0,
+    ior: 1.49, // Acrylic IOR
+    thickness: 0.5,
+    envMapIntensity: 0.8,
     clearcoat: 1.0,
-    clearcoatRoughness: 0.1,
+    clearcoatRoughness: 0.05,
+    transparent: true,
+    opacity: 0.9,
   });
 
-  // Cube dimensions
-  const cubeSize = 1.8;
+  // Cube dimensions - more compact
+  const cubeSize = 1.6;
   const halfSize = cubeSize / 2;
+  const depth = 0.15; // Thickness of each bar
 
   // QR code settings
   const qrSize = 256;
-  const moduleSize = 8; // Size of each QR module in pixels
-  const numModules = Math.floor(qrSize / moduleSize); // Number of modules per row
+  const moduleSize = 8;
+  const numModules = Math.floor(qrSize / moduleSize);
 
-  // 3D module size (small cubes)
+  // 3D module size
   const module3DSize = cubeSize / numModules;
-  const module3DHalf = module3DSize / 2;
 
   // Process each face
   for (let faceIdx = 0; faceIdx < 6; faceIdx++) {
@@ -218,38 +220,47 @@ function createGeneCube(qrCanvases, geneColor) {
     const imageData = ctx.getImageData(0, 0, qrSize, qrSize);
     const pixels = imageData.data;
 
-    // Get face orientation based on FACE_TO_BOX mapping
     const boxIdx = FACE_TO_BOX[faceIdx];
 
-    // Process each module in the QR code
+    // Build grid of dark modules
+    const grid = [];
     for (let row = 0; row < numModules; row++) {
+      grid[row] = [];
       for (let col = 0; col < numModules; col++) {
-        // Get pixel position in canvas
         const px = col * moduleSize + moduleSize / 2;
         const py = row * moduleSize + moduleSize / 2;
         const pixelIdx = (py * qrSize + px) * 4;
-
-        // Check if this module is dark (part of QR code)
         const r = pixels[pixelIdx];
         const g = pixels[pixelIdx + 1];
         const b = pixels[pixelIdx + 2];
         const brightness = (r + g + b) / 3;
+        grid[row][col] = brightness < 128;
+      }
+    }
 
-        // Dark modules are part of the QR code (brightness < 128)
-        if (brightness < 128) {
-          // Calculate 3D position based on face
-          const x = (col - numModules / 2) * module3DSize + module3DHalf;
-          const y = (row - numModules / 2) * module3DSize + module3DHalf;
-          const z = halfSize; // Position on the face
+    // Find horizontal runs and create merged bars
+    for (let row = 0; row < numModules; row++) {
+      let col = 0;
+      while (col < numModules) {
+        if (grid[row][col]) {
+          // Find end of horizontal run
+          let endCol = col;
+          while (endCol < numModules && grid[row][endCol]) {
+            endCol++;
+          }
 
-          // Create rounded cube for this module
-          const geometry = new RoundedBoxGeometry(
-            module3DSize * 0.9, // Slightly smaller for gaps
-            module3DSize * 0.9,
-            module3DSize * 0.4, // Depth
-            4, // Segments for rounding
-            0.02 // Radius for rounding
-          );
+          // Create bar for this run
+          const runLength = endCol - col;
+          const barWidth = runLength * module3DSize;
+          const barHeight = module3DSize;
+
+          // Center position of the bar
+          const x = ((col + runLength / 2) - numModules / 2) * module3DSize;
+          const y = (row - numModules / 2) * module3DSize;
+          const z = halfSize;
+
+          // Create box geometry for bar
+          const geometry = new THREE.BoxGeometry(barWidth, barHeight, depth);
           const mesh = new THREE.Mesh(geometry, moduleMaterial);
 
           // Position and rotate based on face
@@ -280,6 +291,9 @@ function createGeneCube(qrCanvases, geneColor) {
           }
 
           group.add(mesh);
+          col = endCol;
+        } else {
+          col++;
         }
       }
     }
