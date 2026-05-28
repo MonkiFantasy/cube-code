@@ -1,7 +1,7 @@
 import { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.monkifantasy.cube-code',
+  appId: 'com.monkifantasy.cubecode',
   appName: 'Cube Code',
   webDir: 'dist',
   server: {
