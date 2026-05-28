@@ -30,8 +30,8 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Capacitor update
-        run: npx cap update android
+      - name: Capacitor sync
+        run: npx cap sync android
 
       - name: Build APK
         run: cd android && ./gradlew assembleDebug
