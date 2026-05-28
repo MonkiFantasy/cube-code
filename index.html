@@ -20,32 +20,34 @@
     </nav>
 
     <section id="encode" class="tab-content active">
-      <textarea id="input-data" rows="4"></textarea>
-      <div class="face-count-selector">
-        <label for="face-count" data-i18n="faceCount">面数:</label>
-        <select id="face-count">
-          <option value="1">1</option>
-          <option value="2">2</option>
-          <option value="3">3</option>
-          <option value="4">4</option>
-          <option value="5">5</option>
-          <option value="6" selected>6</option>
-        </select>
-      </div>
-      <div class="independent-mode">
-        <label>
-          <input type="checkbox" id="independent-mode">
-          <span data-i18n="independentMode">独立模式</span>
-        </label>
-      </div>
-      <div class="error-level-selector">
-        <label for="error-level" data-i18n="errorLevel">纠错级别:</label>
-        <select id="error-level">
-          <option value="L">L (7%)</option>
-          <option value="M" selected>M (15%)</option>
-          <option value="Q">Q (25%)</option>
-          <option value="H">H (30%)</option>
-        </select>
+      <textarea id="input-data" rows="3"></textarea>
+      <div class="selectors-row">
+        <div class="face-count-selector">
+          <label for="face-count" data-i18n="faceCount">面数:</label>
+          <select id="face-count">
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+            <option value="4">4</option>
+            <option value="5">5</option>
+            <option value="6" selected>6</option>
+          </select>
+        </div>
+        <div class="independent-mode">
+          <label>
+            <input type="checkbox" id="independent-mode">
+            <span data-i18n="independentMode">独立模式</span>
+          </label>
+        </div>
+        <div class="error-level-selector">
+          <label for="error-level" data-i18n="errorLevel">纠错:</label>
+          <select id="error-level">
+            <option value="L">L</option>
+            <option value="M" selected>M</option>
+            <option value="Q">Q</option>
+            <option value="H">H</option>
+          </select>
+        </div>
       </div>
       <button id="btn-encode">生成魔方码</button>
       <div id="encode-toolbar" class="toolbar" style="display:none">
