@@ -10,9 +10,9 @@ let cube3d = null;
 let qrCanvases = [];
 let showCross = false;
 let quickScanMode = false;
-let colorMode = 'colorful'; // 'colorful' | 'bw' | 'inverted' | 'inverted-colorful' | 'gene'
-const COLOR_MODES = ['colorful', 'bw', 'inverted', 'inverted-colorful', 'gene'];
-const COLOR_MODE_KEYS = { colorful: 'modeColorful', bw: 'modeBW', inverted: 'modeInverted', 'inverted-colorful': 'modeInvertedColorful', gene: 'modeGene' };
+let colorMode = 'colorful'; // 'colorful' | 'bw' | 'inverted' | 'inverted-colorful' | 'gene' | 'fusion'
+const COLOR_MODES = ['colorful', 'bw', 'inverted', 'inverted-colorful', 'gene', 'fusion'];
+const COLOR_MODE_KEYS = { colorful: 'modeColorful', bw: 'modeBW', inverted: 'modeInverted', 'inverted-colorful': 'modeInvertedColorful', gene: 'modeGene', fusion: 'modeFusion' };
 let singleFaceIdx = 0;
 let showSingle = false;
 let currentIcon = null;
@@ -343,8 +343,8 @@ btnMaterial.addEventListener('click', () => {
   // Update cube with new material mode
   if (cube3d && qrCanvases.length > 0) {
     const cubeEl = document.getElementById('cube-3d');
-    cubeEl.innerHTML = '';
     cube3d.dispose();
+    cubeEl.innerHTML = '';
     cube3d = createCube(cubeEl, qrCanvases, { materialMode });
   }
 });
