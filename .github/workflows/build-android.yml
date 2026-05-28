@@ -31,7 +31,7 @@ jobs:
         uses: android-actions/setup-android@v3
 
       - name: Copy web assets to Android
-        run: rm -rf android/app/src/main/assets/public && cp -r dist android/app/src/main/assets/public
+        run: mkdir -p android/app/src/main/assets && rm -rf android/app/src/main/assets/public && cp -r dist android/app/src/main/assets/public
 
       - name: Build APK
         run: cd android && ./gradlew assembleDebug
