@@ -96,26 +96,41 @@ export function renderCrossNetCanvas(qrCanvases, { cellSize = 512, mode = 'color
 }
 
 /**
+ * Show a toast notification.
+ */
+function showToast(msg, duration = 3000) {
+  const t = document.createElement('div');
+  t.textContent = msg;
+  t.style.cssText = 'position:fixed;bottom:2rem;left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:0.6rem 1.2rem;border-radius:8px;font-size:0.85rem;z-index:10000;pointer-events:none;opacity:0;transition:opacity 0.3s';
+  document.body.appendChild(t);
+  requestAnimationFrame(() => { t.style.opacity = '1'; });
+  window.setTimeout(() => { t.style.opacity = '0'; window.setTimeout(() => t.remove(), 300); }, duration);
+}
+
+/**
  * Download the cross net as a PNG image.
  */
-export function downloadCrossNet(qrCanvases, mode = 'colorful') {
+export async function downloadCrossNet(qrCanvases, mode = 'colorful') {
   const canvas = renderCrossNetCanvas(qrCanvases, { mode });
   const dataUrl = canvas.toDataURL('image/png');
 
-  // Capacitor (Android/iOS) — show image in overlay for long-press save
+  // Capacitor (Android/iOS) — save file and show confirmation
   if (window.Capacitor) {
-    const overlay = document.createElement('div');
-    overlay.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.9);display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer';
-    const img = document.createElement('img');
-    img.src = dataUrl;
-    img.style.cssText = 'max-width:95vw;max-height:80vh;object-fit:contain;border-radius:8px';
-    const hint = document.createElement('p');
-    hint.textContent = '长按图片保存 / Tap to close';
-    hint.style.cssText = 'color:#fff;margin-top:1rem;font-size:0.9rem';
-    overlay.appendChild(img);
-    overlay.appendChild(hint);
-    overlay.addEventListener('click', () => overlay.remove());
-    document.body.appendChild(overlay);
+    try {
+      const { Filesystem } = await import('@capacitor/filesystem');
+      const base64 = dataUrl.split(',')[1];
+      await Filesystem.writeFile({
+        path: 'cube-code-crossnet.png',
+        data: base64,
+        directory: 'Pictures',
+      });
+      showToast('图片已保存到相册 / Saved to Pictures');
+    } catch (err) {
+      console.warn('Filesystem save failed:', err);
+      showToast('保存失败，尝试显示预览 / Save failed');
+      // Fallback: show overlay for manual save
+      showImageOverlay(dataUrl);
+    }
     return;
   }
 
@@ -126,4 +141,33 @@ export function downloadCrossNet(qrCanvases, mode = 'colorful') {
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
+}
+
+/**
+ * Show image in a full-screen overlay with close button.
+ */
+function showImageOverlay(dataUrl) {
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.9);display:flex;flex-direction:column;align-items:center;justify-content:center';
+
+  const closeBtn = document.createElement('button');
+  closeBtn.textContent = '✕';
+  closeBtn.style.cssText = 'position:absolute;top:1rem;right:1rem;background:rgba(255,255,255,0.2);color:#fff;border:none;border-radius:50%;width:36px;height:36px;font-size:1.2rem;cursor:pointer;z-index:10001';
+  closeBtn.addEventListener('click', (e) => { e.stopPropagation(); overlay.remove(); });
+
+  const img = document.createElement('img');
+  img.src = dataUrl;
+  img.style.cssText = 'max-width:95vw;max-height:80vh;object-fit:contain;border-radius:8px';
+
+  const hint = document.createElement('p');
+  hint.textContent = '长按图片保存 / Long press to save';
+  hint.style.cssText = 'color:#fff;margin-top:1rem;font-size:0.9rem';
+
+  overlay.appendChild(closeBtn);
+  overlay.appendChild(img);
+  overlay.appendChild(hint);
+  // Tap background to close (not the image)
+  overlay.addEventListener('click', () => overlay.remove());
+  img.addEventListener('click', (e) => e.stopPropagation());
+  document.body.appendChild(overlay);
 }
