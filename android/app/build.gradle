@@ -20,12 +20,12 @@ android {
         release {
             def ksFile = project.findProperty('android.injected.signing.store.file')
             def ksPass = project.findProperty('android.injected.signing.store.password')
-            def keyAlias = project.findProperty('android.injected.signing.key.alias')
-            def keyPass = project.findProperty('android.injected.signing.key.password')
+            def kAlias = project.findProperty('android.injected.signing.key.alias')
+            def kPass = project.findProperty('android.injected.signing.key.password')
             storeFile ksFile ? file(ksFile) : null
             storePassword ksPass ?: ''
-            this.keyAlias keyAlias ?: ''
-            keyPassword keyPass ?: ''
+            keyAlias kAlias ?: ''
+            keyPassword kPass ?: ''
         }
     }
     buildTypes {
