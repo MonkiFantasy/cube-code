@@ -96,28 +96,13 @@ export function renderCrossNetCanvas(qrCanvases, { cellSize = 512, mode = 'color
 }
 
 /**
- * Show a toast notification.
- */
-function showToast(msg, duration = 3000) {
-  const t = document.createElement('div');
-  t.textContent = msg;
-  t.style.cssText = 'position:fixed;bottom:2rem;left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:0.6rem 1.2rem;border-radius:8px;font-size:0.85rem;z-index:10001;pointer-events:none;opacity:0;transition:opacity 0.3s';
-  document.body.appendChild(t);
-  requestAnimationFrame(() => { t.style.opacity = '1'; });
-  window.setTimeout(() => { t.style.opacity = '0'; window.setTimeout(() => t.remove(), 300); }, duration);
-}
-
-// Track overlay to prevent duplicates
-let activeOverlay = null;
-
-/**
  * Download the cross net as a PNG image.
  */
 export function downloadCrossNet(qrCanvases, mode = 'colorful') {
   const canvas = renderCrossNetCanvas(qrCanvases, { mode });
   const dataUrl = canvas.toDataURL('image/png');
 
-  // Capacitor (Android/iOS) — show overlay for long-press save
+  // Capacitor (Android/iOS) — show image for native long-press save
   if (window.Capacitor) {
     showImageOverlay(dataUrl);
     return;
@@ -132,11 +117,13 @@ export function downloadCrossNet(qrCanvases, mode = 'colorful') {
   document.body.removeChild(link);
 }
 
+// Track overlay to prevent duplicates
+let activeOverlay = null;
+
 /**
- * Show image in a full-screen overlay with close button.
+ * Show image in a full-screen overlay for native long-press save.
  */
 function showImageOverlay(dataUrl) {
-  // Remove previous overlay if exists
   if (activeOverlay) {
     activeOverlay.remove();
     activeOverlay = null;
@@ -154,7 +141,6 @@ function showImageOverlay(dataUrl) {
   const img = document.createElement('img');
   img.src = dataUrl;
   img.style.cssText = 'max-width:95vw;max-height:80vh;object-fit:contain;border-radius:8px';
-  // Prevent tap on image from closing overlay
   img.addEventListener('click', (e) => e.stopPropagation());
 
   const hint = document.createElement('p');
@@ -164,9 +150,6 @@ function showImageOverlay(dataUrl) {
   overlay.appendChild(closeBtn);
   overlay.appendChild(img);
   overlay.appendChild(hint);
-  // Tap background to close
   overlay.addEventListener('click', () => { overlay.remove(); activeOverlay = null; });
   document.body.appendChild(overlay);
-
-  showToast('长按图片可保存 / Long press image to save', 4000);
 }
