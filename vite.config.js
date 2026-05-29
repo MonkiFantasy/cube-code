@@ -14,11 +14,6 @@ export default defineConfig({
     host: '0.0.0.0',
     https: httpsConfig,
   },
-  build: {
-    rollupOptions: {
-      external: ['@capacitor/share', '@capacitor/filesystem'],
-    },
-  },
   test: {
     globals: true,
   },

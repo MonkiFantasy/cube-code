@@ -98,34 +98,28 @@ export function renderCrossNetCanvas(qrCanvases, { cellSize = 512, mode = 'color
 /**
  * Download the cross net as a PNG image.
  */
-export async function downloadCrossNet(qrCanvases, mode = 'colorful') {
+export function downloadCrossNet(qrCanvases, mode = 'colorful') {
   const canvas = renderCrossNetCanvas(qrCanvases, { mode });
   const dataUrl = canvas.toDataURL('image/png');
 
-  // Capacitor (Android/iOS) — use Share plugin to let user save
+  // Capacitor (Android/iOS) — show image in overlay for long-press save
   if (window.Capacitor) {
-    try {
-      const { Share } = await import('@capacitor/share');
-      const base64 = dataUrl.split(',')[1];
-      const { Filesystem } = await import('@capacitor/filesystem');
-      // Write to cache first, then share the file
-      const result = await Filesystem.writeFile({
-        path: 'cube-code-crossnet.png',
-        data: base64,
-        directory: 'Cache',
-      });
-      await Share.share({
-        title: 'Cube Code',
-        files: [result.uri],
-      });
-      return;
-    } catch (err) {
-      console.warn('Share failed:', err);
-      // Fall through to browser download
-    }
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.9);display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer';
+    const img = document.createElement('img');
+    img.src = dataUrl;
+    img.style.cssText = 'max-width:95vw;max-height:80vh;object-fit:contain;border-radius:8px';
+    const hint = document.createElement('p');
+    hint.textContent = '长按图片保存 / Tap to close';
+    hint.style.cssText = 'color:#fff;margin-top:1rem;font-size:0.9rem';
+    overlay.appendChild(img);
+    overlay.appendChild(hint);
+    overlay.addEventListener('click', () => overlay.remove());
+    document.body.appendChild(overlay);
+    return;
   }
 
-  // Browser / fallback — standard download
+  // Browser — standard download
   const link = document.createElement('a');
   link.download = 'cube-code-crossnet.png';
   link.href = dataUrl;
