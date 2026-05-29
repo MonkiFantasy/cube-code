@@ -1,38 +1,48 @@
-# Cube Code
+# Cube Code 魔方码
 
-> [中文文档](./README.zh-CN.md)
+> [English](./README.md) | [中文](./README.zh-CN.md)
 
-A 3D QR code system that encodes data across six faces of a cube, providing ~6x the data capacity of a standard QR code. Runs entirely in the browser — no server needed.
+A 3D QR code system that encodes data across six faces of a cube, providing ~6x the data capacity of a standard QR code.
 
-## Concept
+## Platforms
 
-Traditional QR codes are 2D — data is encoded on a single flat surface. Cube Code distributes data across all six faces of a cube:
+| Platform | Status | Download |
+|----------|--------|----------|
+| Web (PWA) | ✅ Supported | [Live Demo](https://monkifantasy.github.io/cube-code/) |
+| Android | ✅ Supported | [Releases](https://github.com/MonkiFantasy/cube-code/releases) |
+| iOS | ❌ Planned | — |
 
-- Each face carries a standard QR code with **1/6 of the total data**
-- A **3-bit header** (001–110) identifies each face's position
-- A **human-readable digit** (1–6) is embedded in the center of each QR code for visual identification
-- Data is reassembled by scanning all six faces and ordering by face ID
+## Features
 
-```
-┌───────┐ ┌───────┐ ┌───────┐
-│ ┌───┐ │ │ ┌───┐ │ │ ┌───┐ │
-│ │ 1 │ │ │ │ 2 │ │ │ │ 3 │ │
-│ └───┘ │ │ └───┘ │ │ └───┘ │
-└───────┘ └───────┘ └───────┘
-┌───────┐ ┌───────┐ ┌───────┐
-│ ┌───┐ │ │ ┌───┐ │ │ ┌───┐ │
-│ │ 4 │ │ │ │ 5 │ │ │ │ 6 │ │
-│ └───┘ │ │ └───┘ │ │ └───┘ │
-└───────┘ └───────┘ └───────┘
-```
+### Core
 
-## Data Capacity
+- **QR Encoding/Decoding** — 6-face data splitting with L/M/Q/H error correction
+- **Cross Net View** — Standard cube unfolded layout
+- **Face-by-Face View** — Browse each face individually
+- **Variable Face Count** — Use 1–6 faces based on data size
+- **Independent Mode** — Each face can be decoded independently
 
-| Mode         | Single QR (V40) | Cube Code (6 faces) |
-|--------------|-----------------|----------------------|
-| Numeric      | 7,089 chars     | ~42,534 chars        |
-| Alphanumeric | 4,296 chars     | ~25,776 chars        |
-| Byte         | 2,953 bytes     | ~17,718 bytes        |
+### 3D Rendering
+
+- **Interactive 3D Cube** — Drag to rotate, powered by Three.js
+- **Face Navigation** — Quick buttons: Front / Back / Top / Bottom / Left / Right
+- **Multiple Color Modes** — Colorful / Black & White / Contrast / Contrast Colorful
+- **QR Center Icon** — Customizable icon in QR code center
+- **Glass Material** — Transparent acrylic effect
+- **Season Code** — Purple / Red / Blue cube-style modules
+
+### Mobile & Android
+
+- **Responsive UI** — Optimized for mobile screens
+- **PWA Installable** — Add to home screen on any device
+- **Android APK** — Auto-built via GitHub Actions CI/CD
+- **Native Image Save** — Long-press to save QR images to gallery
+- **Camera Scan** — Real-time QR scanning from camera
+- **Image Upload** — Decode QR from gallery photos
+
+### Internationalization
+
+- **Chinese / English** — Full i18n support
 
 ## Protocol
 
@@ -56,13 +66,13 @@ After scanning all 6 faces and ordering by face ID, the full data is reconstruct
 | Content   | N bytes | The actual data, split across 6 faces     |
 | CRC16     | 2 bytes | Checksum of the complete reassembled data |
 
-## Use Cases
+## Data Capacity
 
-- **Anti-counterfeiting** — 3D structure is hard to replicate
-- **Industrial part labeling** — 6x capacity for serial numbers, specs, batch info
-- **Offline data transfer** — ~17 KB via a physical cube, no network needed
-- **Secure key distribution** — key fragments across 6 faces, all required to reconstruct
-- **AR entry points** — each face stores data for a different AR scene
+| Mode         | Single QR (V40) | Cube Code (6 faces) |
+|--------------|-----------------|----------------------|
+| Numeric      | 7,089 chars     | ~42,534 chars        |
+| Alphanumeric | 4,296 chars     | ~25,776 chars        |
+| Byte         | 2,953 bytes     | ~17,718 bytes        |
 
 ## Development
 
@@ -75,14 +85,48 @@ Open https://localhost:5173 in your browser (self-signed cert, accept the warnin
 
 Camera access requires HTTPS — the dev server uses a self-signed certificate automatically.
 
+### Commands
+
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Start dev server |
+| `npm run build` | Build for production |
+| `npm test` | Run tests |
+| `npm run lint` | Run linter |
+
+### Android Development
+
+```bash
+npm run cap:sync        # Sync web assets to Android
+npm run cap:open:android # Open in Android Studio
+```
+
+### Release
+
+Releases are automated via GitHub Actions:
+
+```bash
+# Via tag
+git tag v1.0.0
+git push origin v1.0.0
+
+# Or via GitHub Actions → Release Android APK → Run workflow
+```
+
 ## Tech Stack
 
 - Vanilla HTML/CSS/JS — zero framework overhead
+- [Three.js](https://threejs.org/) — 3D rendering
 - [qrcode](https://www.npmjs.com/package/qrcode) — QR code generation
-- [jsQR](https://www.npmjs.com/package/jsqr) — QR code scanning from camera
-- [Vite](https://vite.dev/) — dev server and build tool
-- [Vitest](https://vitest.dev/) — unit testing
+- [jsQR](https://www.npmjs.com/package/jsqr) — QR code scanning
+- [Capacitor](https://capacitorjs.com/) — Native Android wrapper
+- [Vite](https://vite.dev/) — Dev server and build tool
+- [Vitest](https://vitest.dev/) — Unit testing
 
 ## License
 
 MIT
+
+---
+
+via [HAPI](https://hapi.run)
