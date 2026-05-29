@@ -101,36 +101,25 @@ export function renderCrossNetCanvas(qrCanvases, { cellSize = 512, mode = 'color
 function showToast(msg, duration = 3000) {
   const t = document.createElement('div');
   t.textContent = msg;
-  t.style.cssText = 'position:fixed;bottom:2rem;left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:0.6rem 1.2rem;border-radius:8px;font-size:0.85rem;z-index:10000;pointer-events:none;opacity:0;transition:opacity 0.3s';
+  t.style.cssText = 'position:fixed;bottom:2rem;left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:0.6rem 1.2rem;border-radius:8px;font-size:0.85rem;z-index:10001;pointer-events:none;opacity:0;transition:opacity 0.3s';
   document.body.appendChild(t);
   requestAnimationFrame(() => { t.style.opacity = '1'; });
   window.setTimeout(() => { t.style.opacity = '0'; window.setTimeout(() => t.remove(), 300); }, duration);
 }
 
+// Track overlay to prevent duplicates
+let activeOverlay = null;
+
 /**
  * Download the cross net as a PNG image.
  */
-export async function downloadCrossNet(qrCanvases, mode = 'colorful') {
+export function downloadCrossNet(qrCanvases, mode = 'colorful') {
   const canvas = renderCrossNetCanvas(qrCanvases, { mode });
   const dataUrl = canvas.toDataURL('image/png');
 
-  // Capacitor (Android/iOS) — save file and show confirmation
+  // Capacitor (Android/iOS) — show overlay for long-press save
   if (window.Capacitor) {
-    try {
-      const { Filesystem } = await import('@capacitor/filesystem');
-      const base64 = dataUrl.split(',')[1];
-      await Filesystem.writeFile({
-        path: 'cube-code-crossnet.png',
-        data: base64,
-        directory: 'Pictures',
-      });
-      showToast('图片已保存到相册 / Saved to Pictures');
-    } catch (err) {
-      console.warn('Filesystem save failed:', err);
-      showToast('保存失败，尝试显示预览 / Save failed');
-      // Fallback: show overlay for manual save
-      showImageOverlay(dataUrl);
-    }
+    showImageOverlay(dataUrl);
     return;
   }
 
@@ -147,27 +136,37 @@ export async function downloadCrossNet(qrCanvases, mode = 'colorful') {
  * Show image in a full-screen overlay with close button.
  */
 function showImageOverlay(dataUrl) {
+  // Remove previous overlay if exists
+  if (activeOverlay) {
+    activeOverlay.remove();
+    activeOverlay = null;
+  }
+
   const overlay = document.createElement('div');
   overlay.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.9);display:flex;flex-direction:column;align-items:center;justify-content:center';
+  activeOverlay = overlay;
 
   const closeBtn = document.createElement('button');
   closeBtn.textContent = '✕';
   closeBtn.style.cssText = 'position:absolute;top:1rem;right:1rem;background:rgba(255,255,255,0.2);color:#fff;border:none;border-radius:50%;width:36px;height:36px;font-size:1.2rem;cursor:pointer;z-index:10001';
-  closeBtn.addEventListener('click', (e) => { e.stopPropagation(); overlay.remove(); });
+  closeBtn.addEventListener('click', (e) => { e.stopPropagation(); overlay.remove(); activeOverlay = null; });
 
   const img = document.createElement('img');
   img.src = dataUrl;
   img.style.cssText = 'max-width:95vw;max-height:80vh;object-fit:contain;border-radius:8px';
+  // Prevent tap on image from closing overlay
+  img.addEventListener('click', (e) => e.stopPropagation());
 
   const hint = document.createElement('p');
-  hint.textContent = '长按图片保存 / Long press to save';
+  hint.textContent = '长按图片保存到相册 / Long press to save';
   hint.style.cssText = 'color:#fff;margin-top:1rem;font-size:0.9rem';
 
   overlay.appendChild(closeBtn);
   overlay.appendChild(img);
   overlay.appendChild(hint);
-  // Tap background to close (not the image)
-  overlay.addEventListener('click', () => overlay.remove());
-  img.addEventListener('click', (e) => e.stopPropagation());
+  // Tap background to close
+  overlay.addEventListener('click', () => { overlay.remove(); activeOverlay = null; });
   document.body.appendChild(overlay);
+
+  showToast('长按图片可保存 / Long press image to save', 4000);
 }
