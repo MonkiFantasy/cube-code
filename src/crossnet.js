@@ -102,21 +102,26 @@ export async function downloadCrossNet(qrCanvases, mode = 'colorful') {
   const canvas = renderCrossNetCanvas(qrCanvases, { mode });
   const dataUrl = canvas.toDataURL('image/png');
 
-  // Capacitor (Android/iOS)
+  // Capacitor (Android/iOS) — use Share plugin to let user save
   if (window.Capacitor) {
     try {
-      const { Filesystem } = await import('@capacitor/filesystem');
+      const { Share } = await import('@capacitor/share');
       const base64 = dataUrl.split(',')[1];
+      const { Filesystem } = await import('@capacitor/filesystem');
+      // Write to cache first, then share the file
       const result = await Filesystem.writeFile({
         path: 'cube-code-crossnet.png',
         data: base64,
         directory: 'Cache',
       });
-      // Show file path to user
-      console.log('Image saved to:', result.uri);
+      await Share.share({
+        title: 'Cube Code',
+        files: [result.uri],
+      });
       return;
     } catch (err) {
-      console.warn('Filesystem save failed, trying browser download:', err);
+      console.warn('Share failed:', err);
+      // Fall through to browser download
     }
   }
 
