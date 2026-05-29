@@ -16,19 +16,23 @@ android {
             ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        release {
+            def ksFile = project.findProperty('android.injected.signing.store.file')
+            def ksPass = project.findProperty('android.injected.signing.store.password')
+            def kAlias = project.findProperty('android.injected.signing.key.alias')
+            def kPass = project.findProperty('android.injected.signing.key.password')
+            storeFile ksFile ? file(ksFile) : null
+            storePassword ksPass ?: ''
+            keyAlias kAlias ?: ''
+            keyPassword kPass ?: ''
+        }
+    }
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
             signingConfig signingConfigs.release
-        }
-    }
-    signingConfigs {
-        release {
-            storeFile file(project.hasProperty('android.injected.signing.store.file') ? android.injected.signing.store.file : 'release.keystore')
-            storePassword project.hasProperty('android.injected.signing.store.password') ? android.injected.signing.store.password : ''
-            keyAlias project.hasProperty('android.injected.signing.key.alias') ? android.injected.signing.key.alias : ''
-            keyPassword project.hasProperty('android.injected.signing.key.password') ? android.injected.signing.key.password : ''
         }
     }
 }
