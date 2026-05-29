@@ -20,6 +20,15 @@ android {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.release
+        }
+    }
+    signingConfigs {
+        release {
+            storeFile file(project.hasProperty('android.injected.signing.store.file') ? android.injected.signing.store.file : 'release.keystore')
+            storePassword project.hasProperty('android.injected.signing.store.password') ? android.injected.signing.store.password : ''
+            keyAlias project.hasProperty('android.injected.signing.key.alias') ? android.injected.signing.key.alias : ''
+            keyPassword project.hasProperty('android.injected.signing.key.password') ? android.injected.signing.key.password : ''
         }
     }
 }
