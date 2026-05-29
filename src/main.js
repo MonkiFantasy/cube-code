@@ -189,7 +189,7 @@ btnEncode.addEventListener('click', async () => {
       cubeContainer.style.display = 'block';
       const cubeEl = document.getElementById('cube-3d');
       cubeEl.innerHTML = '';
-      cube3d = createCube(cubeEl, qrCanvases, { materialMode });
+      cube3d = createCube(cubeEl, qrCanvases, { materialMode, enableSnapRotation: true });
     }
   } catch (err) {
     output.innerHTML = `${t('error')}: ${err.message}`;
@@ -264,7 +264,7 @@ btnCross.addEventListener('click', () => {
     cubeContainer.style.display = 'block';
     const cubeEl = document.getElementById('cube-3d');
     cubeEl.innerHTML = '';
-    cube3d = createCube(cubeEl, qrCanvases, { materialMode });
+    cube3d = createCube(cubeEl, qrCanvases, { materialMode, enableSnapRotation: true });
   }
 });
 
@@ -393,7 +393,7 @@ btnMaterial.addEventListener('click', () => {
     const cubeEl = document.getElementById('cube-3d');
     cube3d.dispose();
     cubeEl.innerHTML = '';
-    cube3d = createCube(cubeEl, qrCanvases, { materialMode, geneColor });
+    cube3d = createCube(cubeEl, qrCanvases, { materialMode, geneColor, enableSnapRotation: true });
   }
 });
 
@@ -415,7 +415,7 @@ if (geneColorPicker) {
       const cubeEl = document.getElementById('cube-3d');
       cube3d.dispose();
       cubeEl.innerHTML = '';
-      cube3d = createCube(cubeEl, qrCanvases, { materialMode, geneColor });
+      cube3d = createCube(cubeEl, qrCanvases, { materialMode, geneColor, enableSnapRotation: true });
     }
   });
 }

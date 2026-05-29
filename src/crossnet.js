@@ -98,10 +98,25 @@ export function renderCrossNetCanvas(qrCanvases, { cellSize = 512, mode = 'color
 /**
  * Download the cross net as a PNG image.
  */
-export function downloadCrossNet(qrCanvases, mode = 'colorful') {
+export async function downloadCrossNet(qrCanvases, mode = 'colorful') {
   const canvas = renderCrossNetCanvas(qrCanvases, { mode });
+  const dataUrl = canvas.toDataURL('image/png');
+
+  // Capacitor (Android/iOS) — save via Filesystem API
+  if (window.Capacitor) {
+    const { Filesystem } = await import('@capacitor/filesystem');
+    const base64 = dataUrl.split(',')[1];
+    await Filesystem.writeFile({
+      path: 'cube-code-crossnet.png',
+      data: base64,
+      directory: 'Pictures',
+    });
+    return;
+  }
+
+  // Browser — standard download
   const link = document.createElement('a');
   link.download = 'cube-code-crossnet.png';
-  link.href = canvas.toDataURL('image/png');
+  link.href = dataUrl;
   link.click();
 }
