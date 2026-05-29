@@ -38,7 +38,6 @@ export default {
   standardMaterial: 'Standard',
   glassMaterial: 'Glass',
   geneMaterial: 'Gene Material',
-  emptyFaceStyle: 'Empty Faces:',
   faceCount: 'Faces:',
   independentMode: 'Independent Mode',
   errorLevel: 'Error Level:',

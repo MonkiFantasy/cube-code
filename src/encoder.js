@@ -66,11 +66,8 @@ const FACE_COLORS_FUSION = [
  * @param {number} options.numFaces - Number of faces (1-6, default 6)
  * @param {boolean} options.independent - If true, each QR contains full data independently
  * @param {string} options.errorLevel - Error correction level: 'L', 'M', 'Q', 'H' (default 'M')
- * @param {string} options.emptyFaceStyle - Style for empty faces: 'color', 'gradient', 'image'
- * @param {string} options.emptyFaceColor - Color for empty faces (default: '#ffffff')
- * @param {HTMLImageElement} options.emptyFaceImage - Image for empty faces
  */
-export async function encodeToCubeCode(data, { mode = 'colorful', icon = null, numFaces = 6, independent = false, errorLevel = 'M', emptyFaceStyle = 'color', emptyFaceColor = '#ffffff', emptyFaceImage = null } = {}) {
+export async function encodeToCubeCode(data, { mode = 'colorful', icon = null, numFaces = 6, independent = false, errorLevel = 'M' } = {}) {
   const encoder = new TextEncoder();
   const dataBytes = encoder.encode(data);
 
@@ -132,46 +129,7 @@ export async function encodeToCubeCode(data, { mode = 'colorful', icon = null, n
     results.push({ faceId: i + 1, canvas });
   }
 
-  // Add empty face canvases when numFaces < 6
-  if (numFaces < 6) {
-    for (let i = numFaces; i < 6; i++) {
-      const canvas = createEmptyFaceCanvas(emptyFaceStyle, emptyFaceColor, emptyFaceImage);
-      results.push({ faceId: i + 1, canvas, isEmpty: true });
-    }
-  }
-
   return results;
-}
-
-/**
- * Create a canvas for an empty face
- * @param {string} style - 'color', 'gradient', or 'image'
- * @param {string} color - Background color
- * @param {HTMLImageElement} image - Optional image
- */
-function createEmptyFaceCanvas(style = 'color', color = '#ffffff', image = null) {
-  const canvas = document.createElement('canvas');
-  canvas.width = 256;
-  canvas.height = 256;
-  const ctx = canvas.getContext('2d');
-
-  if (style === 'image' && image) {
-    // Draw image
-    ctx.drawImage(image, 0, 0, 256, 256);
-  } else if (style === 'gradient') {
-    // Draw gradient
-    const gradient = ctx.createLinearGradient(0, 0, 256, 256);
-    gradient.addColorStop(0, color);
-    gradient.addColorStop(1, '#ffffff');
-    ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, 256, 256);
-  } else {
-    // Solid color
-    ctx.fillStyle = color;
-    ctx.fillRect(0, 0, 256, 256);
-  }
-
-  return canvas;
 }
 
 /**
