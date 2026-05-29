@@ -102,21 +102,29 @@ export async function downloadCrossNet(qrCanvases, mode = 'colorful') {
   const canvas = renderCrossNetCanvas(qrCanvases, { mode });
   const dataUrl = canvas.toDataURL('image/png');
 
-  // Capacitor (Android/iOS) — save via Filesystem API
+  // Capacitor (Android/iOS)
   if (window.Capacitor) {
-    const { Filesystem } = await import('@capacitor/filesystem');
-    const base64 = dataUrl.split(',')[1];
-    await Filesystem.writeFile({
-      path: 'cube-code-crossnet.png',
-      data: base64,
-      directory: 'Pictures',
-    });
-    return;
+    try {
+      const { Filesystem } = await import('@capacitor/filesystem');
+      const base64 = dataUrl.split(',')[1];
+      const result = await Filesystem.writeFile({
+        path: 'cube-code-crossnet.png',
+        data: base64,
+        directory: 'Cache',
+      });
+      // Show file path to user
+      console.log('Image saved to:', result.uri);
+      return;
+    } catch (err) {
+      console.warn('Filesystem save failed, trying browser download:', err);
+    }
   }
 
-  // Browser — standard download
+  // Browser / fallback — standard download
   const link = document.createElement('a');
   link.download = 'cube-code-crossnet.png';
   link.href = dataUrl;
+  document.body.appendChild(link);
   link.click();
+  document.body.removeChild(link);
 }
