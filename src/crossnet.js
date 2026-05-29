@@ -100,8 +100,56 @@ export function renderCrossNetCanvas(qrCanvases, { cellSize = 512, mode = 'color
  */
 export function downloadCrossNet(qrCanvases, mode = 'colorful') {
   const canvas = renderCrossNetCanvas(qrCanvases, { mode });
+  const dataUrl = canvas.toDataURL('image/png');
+
+  // Capacitor (Android/iOS) — show image for native long-press save
+  if (window.Capacitor) {
+    showImageOverlay(dataUrl);
+    return;
+  }
+
+  // Browser — standard download
   const link = document.createElement('a');
   link.download = 'cube-code-crossnet.png';
-  link.href = canvas.toDataURL('image/png');
+  link.href = dataUrl;
+  document.body.appendChild(link);
   link.click();
+  document.body.removeChild(link);
+}
+
+// Track overlay to prevent duplicates
+let activeOverlay = null;
+
+/**
+ * Show image in a full-screen overlay for native long-press save.
+ */
+function showImageOverlay(dataUrl) {
+  if (activeOverlay) {
+    activeOverlay.remove();
+    activeOverlay = null;
+  }
+
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.9);display:flex;flex-direction:column;align-items:center;justify-content:center';
+  activeOverlay = overlay;
+
+  const closeBtn = document.createElement('button');
+  closeBtn.textContent = '✕';
+  closeBtn.style.cssText = 'position:absolute;top:1rem;right:1rem;background:rgba(255,255,255,0.2);color:#fff;border:none;border-radius:50%;width:36px;height:36px;font-size:1.2rem;cursor:pointer;z-index:10001';
+  closeBtn.addEventListener('click', (e) => { e.stopPropagation(); overlay.remove(); activeOverlay = null; });
+
+  const img = document.createElement('img');
+  img.src = dataUrl;
+  img.style.cssText = 'max-width:95vw;max-height:80vh;object-fit:contain;border-radius:8px';
+  img.addEventListener('click', (e) => e.stopPropagation());
+
+  const hint = document.createElement('p');
+  hint.textContent = '长按图片保存到相册 / Long press to save';
+  hint.style.cssText = 'color:#fff;margin-top:1rem;font-size:0.9rem';
+
+  overlay.appendChild(closeBtn);
+  overlay.appendChild(img);
+  overlay.appendChild(hint);
+  overlay.addEventListener('click', () => { overlay.remove(); activeOverlay = null; });
+  document.body.appendChild(overlay);
 }

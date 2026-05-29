@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Cube Code</string>
+    <string name="title_activity_main">Cube Code</string>
+    <string name="package_name">com.monkifantasy.cubecode</string>
+    <string name="custom_url_scheme">com.monkifantasy.cubecode</string>
+</resources>
