@@ -1,6 +1,48 @@
 # Cube Code - 魔方码
 
+> [English](./README.md) | [中文](./README.zh-CN.md)
+
 一个 3D 二维码系统，将数据分布在立方体的六个面上，提供约 6 倍于标准二维码的数据容量。
+
+## 平台支持
+
+| 平台 | 状态 | 下载 |
+|------|------|------|
+| Web (PWA) | ✅ 已支持 | [在线体验](https://monkifantasy.github.io/cube-code/) |
+| Android | ✅ 已支持 | [Releases](https://github.com/MonkiFantasy/cube-code/releases) |
+| iOS | ❌ 计划中 | — |
+
+## 功能
+
+### 核心功能
+
+- **QR 编码/解码** — 6 面数据分割，支持 L/M/Q/H 纠错级别
+- **十字展开图** — 标准立方体展开布局，清晰展示 6 个面
+- **逐面查看** — 左右切换查看每个面的 QR 细节
+- **可变面数** — 根据数据量选择 1–6 个面
+- **独立模式** — 每个面可独立解码
+
+### 3D 渲染
+
+- **交互式 3D 立方体** — 拖拽旋转，Three.js 渲染
+- **面导航按钮** — 前/后/上/下/左/右快速切换视角
+- **多种颜色模式** — 炫彩/黑白/异色/异色炫彩
+- **QR 中心图标** — 可自定义二维码中心图标
+- **玻璃材质** — 透明亚克力效果
+- **赛季限定码** — 紫/红/蓝三色，方块拼接风格
+
+### 移动端 & Android
+
+- **响应式 UI** — 手机端优化布局
+- **PWA 可安装** — 添加到主屏幕，类原生体验
+- **Android APK** — GitHub Actions CI/CD 自动构建
+- **原生保存图片** — 长按保存 QR 图片到相册
+- **摄像头扫描** — 实时 QR 扫描解码
+- **上传图片解码** — 从相册选择图片解码
+
+### 国际化
+
+- **中英文** — 完整 i18n 支持
 
 ## 概念
 
@@ -83,11 +125,43 @@ npm run build
 
 浏览器打开 https://localhost:5173（自签名证书，需手动信任）。
 
+摄像头访问需要 HTTPS — 开发服务器自动使用自签名证书。
+
+### 命令
+
+| 命令 | 说明 |
+|------|------|
+| `npm run dev` | 启动开发服务器 |
+| `npm run build` | 构建生产版本 |
+| `npm test` | 运行测试 |
+| `npm run lint` | 运行代码检查 |
+
+### Android 开发
+
+```bash
+npm run cap:sync         # 同步 web 资源到 Android
+npm run cap:open:android # 在 Android Studio 中打开
+```
+
+### 发布
+
+通过 GitHub Actions 自动化发布：
+
+```bash
+# 通过 tag
+git tag v1.0.0
+git push origin v1.0.0
+
+# 或通过 GitHub Actions → Release Android APK → Run workflow
+```
+
 ## 技术栈
 
 - Vanilla HTML/CSS/JS — 零框架开销
+- [Three.js](https://threejs.org/) — 3D 渲染
 - [qrcode](https://www.npmjs.com/package/qrcode) — 二维码生成
 - [jsQR](https://www.npmjs.com/package/jsqr) — 摄像头扫描解码
+- [Capacitor](https://capacitorjs.com/) — Android 原生封装
 - [Vite](https://vite.dev/) — 开发服务器和构建工具
 - [Vitest](https://vitest.dev/) — 单元测试
 
@@ -101,3 +175,7 @@ npm run build
 ## 许可证
 
 MIT
+
+---
+
+via [HAPI](https://hapi.run)
