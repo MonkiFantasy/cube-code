@@ -265,6 +265,11 @@ btnColorMode.addEventListener('click', async () => {
   if (showCross) {
     renderCrossNet(crossContainer, qrCanvases, { mode: colorMode });
   }
+  if (cubeContainer.style.display !== 'none') {
+    const cubeEl = document.getElementById('cube-3d');
+    cubeEl.innerHTML = '';
+    cube3d = createCube(cubeEl, qrCanvases, { materialMode, enableSnapRotation: true });
+  }
 });
 
 // Icon upload
@@ -319,6 +324,11 @@ async function reencodeWithIcon() {
   }
   if (showCross) {
     renderCrossNet(crossContainer, qrCanvases, { mode: colorMode });
+  }
+  if (cubeContainer.style.display !== 'none') {
+    const cubeEl = document.getElementById('cube-3d');
+    cubeEl.innerHTML = '';
+    cube3d = createCube(cubeEl, qrCanvases, { materialMode, enableSnapRotation: true });
   }
 }
 
