@@ -459,14 +459,14 @@ fileInput.addEventListener('change', (e) => {
       }
       updateScanCount();
 
-      // Auto-decode if all 6 faces found
+      // Auto-decode if all faces found
       if (scannedPayloads.length >= numFaces) {
         const decoded = decodeCubeCode(scannedPayloads, numFaces);
         if (decoded.success) {
           output.textContent = decoded.data;
         }
       } else {
-        output.textContent = `${t('scanned')}: ${result.found} / 6`;
+        output.textContent = '';
       }
     } else {
       output.textContent = t('noFaces');
