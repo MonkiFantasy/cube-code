@@ -265,6 +265,11 @@ btnColorMode.addEventListener('click', async () => {
   if (showCross) {
     renderCrossNet(crossContainer, qrCanvases, { mode: colorMode });
   }
+  if (cubeContainer.style.display !== 'none') {
+    const cubeEl = document.getElementById('cube-3d');
+    cubeEl.innerHTML = '';
+    cube3d = createCube(cubeEl, qrCanvases, { materialMode, enableSnapRotation: true });
+  }
 });
 
 // Icon upload
@@ -319,6 +324,11 @@ async function reencodeWithIcon() {
   }
   if (showCross) {
     renderCrossNet(crossContainer, qrCanvases, { mode: colorMode });
+  }
+  if (cubeContainer.style.display !== 'none') {
+    const cubeEl = document.getElementById('cube-3d');
+    cubeEl.innerHTML = '';
+    cube3d = createCube(cubeEl, qrCanvases, { materialMode, enableSnapRotation: true });
   }
 }
 
@@ -449,14 +459,14 @@ fileInput.addEventListener('change', (e) => {
       }
       updateScanCount();
 
-      // Auto-decode if all 6 faces found
+      // Auto-decode if all faces found
       if (scannedPayloads.length >= numFaces) {
         const decoded = decodeCubeCode(scannedPayloads, numFaces);
         if (decoded.success) {
           output.textContent = decoded.data;
         }
       } else {
-        output.textContent = `${t('scanned')}: ${result.found} / 6`;
+        output.textContent = '';
       }
     } else {
       output.textContent = t('noFaces');
