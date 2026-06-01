@@ -234,15 +234,26 @@ function createGeneCube(qrCanvases, geneColor) {
   // floating-point precision, texture sampling and rounded bevels at face seams.
   const seamOverlap = module3DSize * 0.018;
   const tileSize = module3DSize + seamOverlap;
+  const edgeWrap = baseDepth * 1.4;
 
-  // Create a single shared geometry for all modules (same size)
-  const moduleGeometry = new RoundedBoxGeometry(
-    tileSize,
-    tileSize,
-    depth,
-    2,
-    module3DSize * 0.045
-  );
+  const moduleGeometries = new Map();
+  const getRaisedGeometry = (row, col) => {
+    const left = col === 0;
+    const right = col === numModules - 1;
+    const top = row === 0;
+    const bottom = row === numModules - 1;
+    const key = `${left}-${right}-${top}-${bottom}`;
+    if (!moduleGeometries.has(key)) {
+      moduleGeometries.set(key, new RoundedBoxGeometry(
+        tileSize + (left || right ? edgeWrap * 2 : 0),
+        tileSize + (top || bottom ? edgeWrap * 2 : 0),
+        depth,
+        1,
+        module3DSize * 0.025
+      ));
+    }
+    return moduleGeometries.get(key);
+  };
 
   const baseMaterial = new THREE.MeshPhysicalMaterial({
     color,
@@ -254,16 +265,18 @@ function createGeneCube(qrCanvases, geneColor) {
     clearcoat: 1,
     clearcoatRoughness: 0.06,
     transparent: true,
-    opacity: 0.18,
+    opacity: 0.13,
     depthWrite: false,
   });
 
-  const baseGeometry = new RoundedBoxGeometry(
-    tileSize,
-    tileSize,
+  // The translucent "light" layer is intentionally a square cuboid and wraps
+  // past the mathematical cube edge. Adjacent faces overlap slightly at their
+  // own boundaries, so the cube is sealed by the face pixels themselves instead
+  // of by an added outside frame.
+  const baseGeometry = new THREE.BoxGeometry(
+    tileSize + edgeWrap * 2,
+    tileSize + edgeWrap * 2,
     baseDepth,
-    1,
-    module3DSize * 0.025
   );
 
   // Process each face
@@ -302,8 +315,7 @@ function createGeneCube(qrCanvases, geneColor) {
 
         // Dark modules are part of the QR code
         if (brightness < 128) {
-          // Create mesh using shared geometry
-          const mesh = new THREE.Mesh(moduleGeometry, moduleMaterial);
+          const mesh = new THREE.Mesh(getRaisedGeometry(row, col), moduleMaterial);
           positionGeneTile(mesh, boxIdx, x, y, halfSize + baseDepth + depth / 2);
           group.add(mesh);
         }
