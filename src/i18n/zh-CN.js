@@ -35,6 +35,7 @@ export default {
   viewSingle: '逐面查看',
   addIcon: '添加图标',
   removeIcon: '移除图标',
+  emptyFaceImage: '空面图片',
   resetScan: '重新扫描',
   standardMaterial: '标准材质',
   glassMaterial: '玻璃材质',

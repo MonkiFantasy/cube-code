@@ -10,17 +10,68 @@ let cube3d = null;
 let qrCanvases = [];
 let showCross = false;
 let quickScanMode = false;
-let colorMode = 'colorful'; // 'colorful' | 'bw' | 'inverted' | 'inverted-colorful' | 'gene' | 'fusion'
-const COLOR_MODES = ['colorful', 'bw', 'inverted', 'inverted-colorful', 'gene', 'fusion'];
-const COLOR_MODE_KEYS = { colorful: 'modeColorful', bw: 'modeBW', inverted: 'modeInverted', 'inverted-colorful': 'modeInvertedColorful', gene: 'modeGene', fusion: 'modeFusion' };
+let colorMode = 'colorful'; // 'colorful' | 'bw' | 'inverted' | 'inverted-colorful'
+const COLOR_MODES = ['colorful', 'bw', 'inverted', 'inverted-colorful'];
+const COLOR_MODE_KEYS = { colorful: 'modeColorful', bw: 'modeBW', inverted: 'modeInverted', 'inverted-colorful': 'modeInvertedColorful' };
 let singleFaceIdx = 0;
 let showSingle = false;
 let currentIcon = null;
+let emptyFaceImage = null;
 let materialMode = 'standard';
 let geneColor = 'purple';
 let numFaces = 6;
 let independentMode = false;
 let errorLevel = 'M';
+
+function getEncodeOptions() {
+  return {
+    mode: materialMode === 'gene' ? 'gene' : colorMode,
+    icon: currentIcon,
+    numFaces,
+    independent: independentMode,
+    errorLevel,
+    geneColor,
+    emptyFaceImage,
+  };
+}
+
+function renderEncodedResults(results) {
+  qrCanvases = [];
+  const output = document.getElementById('qr-output');
+  output.innerHTML = '';
+  for (const { faceId, canvas } of results) {
+    const cell = document.createElement('div');
+    cell.className = 'qr-cell';
+    cell.appendChild(canvas);
+    const label = document.createElement('div');
+    label.className = 'face-label';
+    label.textContent = `${t('face')} ${faceId}`;
+    cell.appendChild(label);
+    output.appendChild(cell);
+    qrCanvases.push(canvas);
+  }
+}
+
+async function reencodeCurrent() {
+  const input = document.getElementById('input-data').value.trim();
+  if (!input) return;
+
+  const results = await encodeToCubeCode(input, getEncodeOptions());
+  renderEncodedResults(results);
+
+  if (showSingle) {
+    renderSingleFace();
+  }
+  if (showCross) {
+    renderCrossNet(crossContainer, qrCanvases, { mode: getEncodeOptions().mode });
+  }
+  if (cubeContainer.style.display !== 'none') {
+    const cubeEl = document.getElementById('cube-3d');
+    if (cube3d) cube3d.dispose();
+    cubeEl.innerHTML = '';
+    cube3d = createCube(cubeEl, qrCanvases, { materialMode, geneColor });
+  }
+}
 
 // --- i18n ---
 function applyLang() {
@@ -68,6 +119,7 @@ document.querySelectorAll('.tab').forEach((tab) => {
 
 // --- Face count selector ---
 const faceCountSelect = document.getElementById('face-count');
+faceCountSelect.disabled = true;
 faceCountSelect.addEventListener('change', (e) => {
   numFaces = parseInt(e.target.value, 10);
 });
@@ -76,6 +128,15 @@ faceCountSelect.addEventListener('change', (e) => {
 const independentModeCheckbox = document.getElementById('independent-mode');
 independentModeCheckbox.addEventListener('change', (e) => {
   independentMode = e.target.checked;
+  faceCountSelect.disabled = !independentMode;
+  const emptyFaceButton = document.getElementById('btn-empty-face');
+  if (emptyFaceButton) {
+    emptyFaceButton.style.display = independentMode ? '' : 'none';
+  }
+  if (!independentMode) {
+    numFaces = 6;
+    faceCountSelect.value = '6';
+  }
 });
 
 // --- Error level selector ---
@@ -122,7 +183,7 @@ btnEncode.addEventListener('click', async () => {
   btnSingle.classList.remove('active');
 
   try {
-    const results = await encodeToCubeCode(input, { mode: colorMode, icon: currentIcon, numFaces, independent: independentMode, errorLevel });
+    const results = await encodeToCubeCode(input, getEncodeOptions());
     output.innerHTML = '';
 
     if (cube3d) {
@@ -130,29 +191,18 @@ btnEncode.addEventListener('click', async () => {
       cube3d = null;
     }
 
-    qrCanvases = [];
-    for (const { faceId, canvas } of results) {
-      const cell = document.createElement('div');
-      cell.className = 'qr-cell';
-      cell.appendChild(canvas);
-      const label = document.createElement('div');
-      label.className = 'face-label';
-      label.textContent = `${t('face')} ${faceId}`;
-      cell.appendChild(label);
-      output.appendChild(cell);
-      qrCanvases.push(canvas);
-    }
+    renderEncodedResults(results);
 
     toolbar.style.display = 'flex';
 
     if (showCross) {
       crossContainer.style.display = 'block';
-      renderCrossNet(crossContainer, qrCanvases, { mode: colorMode });
+      renderCrossNet(crossContainer, qrCanvases, { mode: getEncodeOptions().mode });
     } else {
       cubeContainer.style.display = 'block';
       const cubeEl = document.getElementById('cube-3d');
       cubeEl.innerHTML = '';
-      cube3d = createCube(cubeEl, qrCanvases, { materialMode });
+      cube3d = createCube(cubeEl, qrCanvases, { materialMode, geneColor });
     }
   } catch (err) {
     output.innerHTML = `${t('error')}: ${err.message}`;
@@ -221,13 +271,13 @@ btnCross.addEventListener('click', () => {
     if (cube3d) { cube3d.dispose(); cube3d = null; }
     cubeContainer.style.display = 'none';
     crossContainer.style.display = 'block';
-    renderCrossNet(crossContainer, qrCanvases, { mode: colorMode });
+    renderCrossNet(crossContainer, qrCanvases, { mode: getEncodeOptions().mode });
   } else {
     crossContainer.style.display = 'none';
     cubeContainer.style.display = 'block';
     const cubeEl = document.getElementById('cube-3d');
     cubeEl.innerHTML = '';
-    cube3d = createCube(cubeEl, qrCanvases, { materialMode });
+    cube3d = createCube(cubeEl, qrCanvases, { materialMode, geneColor });
   }
 });
 
@@ -243,38 +293,14 @@ btnColorMode.addEventListener('click', async () => {
   const input = document.getElementById('input-data').value.trim();
   if (!input) return;
 
-  const results = await encodeToCubeCode(input, { mode: colorMode, icon: currentIcon });
-  qrCanvases = [];
-  const output = document.getElementById('qr-output');
-  output.innerHTML = '';
-  for (const { faceId, canvas } of results) {
-    const cell = document.createElement('div');
-    cell.className = 'qr-cell';
-    cell.appendChild(canvas);
-    const label = document.createElement('div');
-    label.className = 'face-label';
-    label.textContent = `${t('face')} ${faceId}`;
-    cell.appendChild(label);
-    output.appendChild(cell);
-    qrCanvases.push(canvas);
-  }
-
-  if (showSingle) {
-    renderSingleFace();
-  }
-  if (showCross) {
-    renderCrossNet(crossContainer, qrCanvases, { mode: colorMode });
-  }
-  if (cubeContainer.style.display !== 'none') {
-    const cubeEl = document.getElementById('cube-3d');
-    cubeEl.innerHTML = '';
-    cube3d = createCube(cubeEl, qrCanvases, { materialMode, enableSnapRotation: true });
-  }
+  await reencodeCurrent();
 });
 
 // Icon upload
 const btnIcon = document.getElementById('btn-icon');
 const iconInput = document.getElementById('icon-input');
+const btnEmptyFace = document.getElementById('btn-empty-face');
+const emptyFaceInput = document.getElementById('empty-face-input');
 
 btnIcon.addEventListener('click', () => {
   iconInput.click();
@@ -299,37 +325,33 @@ iconInput.addEventListener('change', (e) => {
   iconInput.value = '';
 });
 
+btnEmptyFace.addEventListener('click', () => {
+  emptyFaceInput.click();
+});
+
+emptyFaceInput.addEventListener('change', (e) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+
+  const img = new Image();
+  img.onload = () => {
+    emptyFaceImage = img;
+    btnEmptyFace.classList.add('active');
+
+    const input = document.getElementById('input-data').value.trim();
+    if (input && qrCanvases.length > 0 && independentMode) {
+      reencodeCurrent();
+    }
+  };
+  img.src = URL.createObjectURL(file);
+  emptyFaceInput.value = '';
+});
+
 async function reencodeWithIcon() {
   const input = document.getElementById('input-data').value.trim();
   if (!input) return;
 
-  const results = await encodeToCubeCode(input, { mode: colorMode, icon: currentIcon });
-  qrCanvases = [];
-  const output = document.getElementById('qr-output');
-  output.innerHTML = '';
-  for (const { faceId, canvas } of results) {
-    const cell = document.createElement('div');
-    cell.className = 'qr-cell';
-    cell.appendChild(canvas);
-    const label = document.createElement('div');
-    label.className = 'face-label';
-    label.textContent = `${t('face')} ${faceId}`;
-    cell.appendChild(label);
-    output.appendChild(cell);
-    qrCanvases.push(canvas);
-  }
-
-  if (showSingle) {
-    renderSingleFace();
-  }
-  if (showCross) {
-    renderCrossNet(crossContainer, qrCanvases, { mode: colorMode });
-  }
-  if (cubeContainer.style.display !== 'none') {
-    const cubeEl = document.getElementById('cube-3d');
-    cubeEl.innerHTML = '';
-    cube3d = createCube(cubeEl, qrCanvases, { materialMode, enableSnapRotation: true });
-  }
+  await reencodeCurrent();
 }
 
 // Remove icon
@@ -349,7 +371,7 @@ const MATERIAL_MODES = ['standard', 'glass', 'gene'];
 const MATERIAL_MODE_KEYS = { standard: 'standardMaterial', glass: 'glassMaterial', gene: 'geneMaterial' };
 
 const btnMaterial = document.getElementById('btn-material');
-btnMaterial.addEventListener('click', () => {
+btnMaterial.addEventListener('click', async () => {
   const idx = MATERIAL_MODES.indexOf(materialMode);
   materialMode = MATERIAL_MODES[(idx + 1) % MATERIAL_MODES.length];
   btnMaterial.textContent = t(MATERIAL_MODE_KEYS[materialMode]);
@@ -361,19 +383,17 @@ btnMaterial.addEventListener('click', () => {
     geneColorPicker.style.display = materialMode === 'gene' ? 'flex' : 'none';
   }
 
-  // Update cube with new material mode
-  if (cube3d && qrCanvases.length > 0) {
-    const cubeEl = document.getElementById('cube-3d');
-    cube3d.dispose();
-    cubeEl.innerHTML = '';
-    cube3d = createCube(cubeEl, qrCanvases, { materialMode, geneColor });
+  // Gene material owns the flat QR palette too, so re-encode when switching
+  // into/out of it to keep the 2D QR list consistent with purple/red/blue.
+  if (qrCanvases.length > 0) {
+    await reencodeCurrent();
   }
 });
 
 // Gene color picker
 const geneColorPicker = document.getElementById('gene-color-picker');
 if (geneColorPicker) {
-  geneColorPicker.addEventListener('click', (e) => {
+  geneColorPicker.addEventListener('click', async (e) => {
     const btn = e.target.closest('.gene-color-btn');
     if (!btn) return;
 
@@ -383,12 +403,9 @@ if (geneColorPicker) {
     geneColorPicker.querySelectorAll('.gene-color-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
 
-    // Update cube with new color
-    if (cube3d && qrCanvases.length > 0 && materialMode === 'gene') {
-      const cubeEl = document.getElementById('cube-3d');
-      cube3d.dispose();
-      cubeEl.innerHTML = '';
-      cube3d = createCube(cubeEl, qrCanvases, { materialMode, geneColor });
+    // Update cube and flat QR colors with new gene color
+    if (qrCanvases.length > 0 && materialMode === 'gene') {
+      await reencodeCurrent();
     }
   });
 }
@@ -396,7 +413,7 @@ if (geneColorPicker) {
 // Save cross net as image
 btnSave.addEventListener('click', () => {
   if (qrCanvases.length === 0) return;
-  downloadCrossNet(qrCanvases, colorMode);
+  downloadCrossNet(qrCanvases, getEncodeOptions().mode);
 });
 
 // --- Decode ---
