@@ -28,11 +28,14 @@ export function createCube(container, qrCanvases, { materialMode = 'standard', g
   const height = container.clientWidth;
 
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0xf5f5f5);
+  scene.background = new THREE.Color(materialMode === 'gene' ? 0x070816 : 0xf5f5f5);
 
   // Add environment map for glass/gene reflections
+  let pmremGenerator = null;
+  let envRenderer = null;
   if (materialMode === 'glass' || materialMode === 'gene') {
-    const pmremGenerator = new THREE.PMREMGenerator(new THREE.WebGLRenderer());
+    envRenderer = new THREE.WebGLRenderer({ antialias: true });
+    pmremGenerator = new THREE.PMREMGenerator(envRenderer);
     const envTexture = pmremGenerator.fromScene(new RoomEnvironment()).texture;
     scene.environment = envTexture;
   }
@@ -40,9 +43,12 @@ export function createCube(container, qrCanvases, { materialMode = 'standard', g
   const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 100);
   camera.position.set(2.5, 2, 2.5);
 
-  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
   renderer.setSize(width, height);
   renderer.setPixelRatio(window.devicePixelRatio);
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = materialMode === 'gene' ? 1.35 : 1.0;
   container.appendChild(renderer.domElement);
 
   const controls = new OrbitControls(camera, renderer.domElement);
@@ -101,11 +107,16 @@ export function createCube(container, qrCanvases, { materialMode = 'standard', g
     camera.rotation.y += dy * dampingFactor;
   }
 
-  const ambient = new THREE.AmbientLight(0xffffff, 0.8);
+  const ambient = new THREE.AmbientLight(0xffffff, materialMode === 'gene' ? 0.35 : 0.8);
   scene.add(ambient);
-  const dirLight = new THREE.DirectionalLight(0xffffff, 0.5);
+  const dirLight = new THREE.DirectionalLight(0xffffff, materialMode === 'gene' ? 0.75 : 0.5);
   dirLight.position.set(5, 5, 5);
   scene.add(dirLight);
+  if (materialMode === 'gene') {
+    const rimLight = new THREE.DirectionalLight(0x9bbcff, 1.2);
+    rimLight.position.set(-4, 3, -5);
+    scene.add(rimLight);
+  }
 
   // Create main group
   const mainGroup = new THREE.Group();
@@ -123,8 +134,12 @@ export function createCube(container, qrCanvases, { materialMode = 'standard', g
     cube = new THREE.Mesh(geometry, materials);
     mainGroup.add(cube);
 
-    const edges = new THREE.EdgesGeometry(geometry);
-    const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x333333 }));
+    const edges = new THREE.EdgesGeometry(geometry, 30);
+    const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({
+      color: materialMode === 'glass' ? 0xffffff : 0x333333,
+      transparent: true,
+      opacity: materialMode === 'glass' ? 0.35 : 0.75,
+    }));
     mainGroup.add(line);
   }
 
@@ -169,6 +184,8 @@ export function createCube(container, qrCanvases, { materialMode = 'standard', g
       cancelAnimationFrame(animId);
       controls.dispose();
       window.removeEventListener('resize', onResize);
+      if (pmremGenerator) pmremGenerator.dispose();
+      if (envRenderer) envRenderer.dispose();
       renderer.dispose();
       container.removeChild(renderer.domElement);
     },
@@ -183,41 +200,84 @@ export function createCube(container, qrCanvases, { materialMode = 'standard', g
 function createGeneCube(qrCanvases, geneColor) {
   const group = new THREE.Group();
   const color = GENE_COLORS.find(c => c.name === geneColor)?.color || '#8B5CF6';
+  const glowColor = new THREE.Color(color);
 
   // Acrylic material - translucent with subtle reflections
   const moduleMaterial = new THREE.MeshPhysicalMaterial({
     color: color,
-    transmission: 0.8,
-    roughness: 0.1,
+    emissive: glowColor,
+    emissiveIntensity: 0.42,
+    transmission: 0.62,
+    roughness: 0.075,
     metalness: 0.0,
     ior: 1.49,
-    thickness: 0.5,
-    envMapIntensity: 0.8,
+    thickness: 0.65,
+    envMapIntensity: 1.35,
     clearcoat: 1.0,
     clearcoatRoughness: 0.05,
     transparent: true,
-    opacity: 0.9,
+    opacity: 0.92,
   });
 
   // Cube dimensions
   const cubeSize = 1.8;
   const halfSize = cubeSize / 2;
-  const depth = 0.12; // Depth of each module
+  const depth = 0.125; // Depth of each module
 
   // QR code settings
   const qrSize = 256;
   const moduleSize = 8;
   const numModules = Math.floor(qrSize / moduleSize);
   const module3DSize = cubeSize / numModules;
+  // Slightly oversize every tile to remove hairline cracks caused by
+  // floating-point precision, texture sampling and rounded bevels at face seams.
+  const seamOverlap = module3DSize * 0.018;
+  const tileSize = module3DSize + seamOverlap;
 
   // Create a single shared geometry for all modules (same size)
   const moduleGeometry = new RoundedBoxGeometry(
-    module3DSize,
-    module3DSize,
+    tileSize,
+    tileSize,
     depth,
     2,
-    module3DSize * 0.15
+    module3DSize * 0.045
   );
+
+  const seamMaterial = new THREE.MeshPhysicalMaterial({
+    color,
+    emissive: glowColor,
+    emissiveIntensity: 0.3,
+    roughness: 0.12,
+    transmission: 0.72,
+    thickness: 0.35,
+    clearcoat: 1,
+    clearcoatRoughness: 0.04,
+    transparent: true,
+    opacity: 0.2,
+    depthWrite: false,
+  });
+
+  // A nearly invisible inner cube catches the rear side of all face modules.
+  // It makes the six planes read as one physically joined object instead of
+  // six independent floating skins, without covering/scanning QR modules.
+  const core = new THREE.Mesh(
+    new THREE.BoxGeometry(cubeSize * 0.998, cubeSize * 0.998, cubeSize * 0.998),
+    new THREE.MeshPhysicalMaterial({
+      color,
+      emissive: glowColor,
+      emissiveIntensity: 0.08,
+      roughness: 0.18,
+      transmission: 0.84,
+      thickness: 1.0,
+      transparent: true,
+      opacity: 0.08,
+      depthWrite: false,
+    })
+  );
+  group.add(core);
+
+  addGeneFaceBackplates(group, cubeSize, depth, seamMaterial);
+  addGeneEdgeBridges(group, cubeSize, depth, color);
 
   // Process each face
   for (let faceIdx = 0; faceIdx < 6; faceIdx++) {
@@ -287,22 +347,120 @@ function createGeneCube(qrCanvases, geneColor) {
     }
   }
 
-  // Add internal light source for glow effect
-  const pointLight = new THREE.PointLight(color, 2, 3);
+  // Add internal light sources for a premium acrylic/neon glow.
+  const pointLight = new THREE.PointLight(color, 4.2, 4.2, 1.6);
   pointLight.position.set(0, 0, 0);
   group.add(pointLight);
+  const topLight = new THREE.PointLight(0xffffff, 1.2, 3.2, 2);
+  topLight.position.set(0.45, 0.55, 0.45);
+  group.add(topLight);
 
-  // Add subtle ambient glow sphere
-  const glowGeometry = new THREE.SphereGeometry(0.3, 16, 16);
-  const glowMaterial = new THREE.MeshBasicMaterial({
-    color: color,
-    transparent: true,
-    opacity: 0.3,
-  });
-  const glowSphere = new THREE.Mesh(glowGeometry, glowMaterial);
-  group.add(glowSphere);
+  // Layered additive halos: cheaper than post-processing bloom but gives a
+  // softer, more advanced glow in both desktop and mobile WebViews.
+  const glowLayers = [
+    { size: 1.45, opacity: 0.16 },
+    { size: 2.1, opacity: 0.07 },
+    { size: 2.85, opacity: 0.035 },
+  ];
+  for (const layer of glowLayers) {
+    const glowGeometry = new THREE.SphereGeometry(layer.size, 32, 32);
+    const glowMaterial = new THREE.MeshBasicMaterial({
+      color,
+      transparent: true,
+      opacity: layer.opacity,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    });
+    group.add(new THREE.Mesh(glowGeometry, glowMaterial));
+  }
+
+  // Thin outer shell adds continuous edge highlights so the six faces appear
+  // perfectly attached even where QR modules are sparse near an edge.
+  const shell = new THREE.Mesh(
+    new THREE.BoxGeometry(cubeSize + depth * 2.04, cubeSize + depth * 2.04, cubeSize + depth * 2.04),
+    new THREE.MeshBasicMaterial({
+      color,
+      transparent: true,
+      opacity: 0.055,
+      blending: THREE.AdditiveBlending,
+      side: THREE.BackSide,
+      depthWrite: false,
+    })
+  );
+  group.add(shell);
 
   return group;
+}
+
+function addGeneFaceBackplates(group, cubeSize, depth, material) {
+  const halfSize = cubeSize / 2;
+  const plateDepth = depth * 0.16;
+  const plateGeometry = new THREE.BoxGeometry(cubeSize, cubeSize, plateDepth);
+
+  const plates = [
+    { position: [0, 0, halfSize + plateDepth / 2], rotation: [0, 0, 0] },
+    { position: [0, 0, -halfSize - plateDepth / 2], rotation: [0, Math.PI, 0] },
+    { position: [0, halfSize + plateDepth / 2, 0], rotation: [-Math.PI / 2, 0, 0] },
+    { position: [0, -halfSize - plateDepth / 2, 0], rotation: [Math.PI / 2, 0, 0] },
+    { position: [halfSize + plateDepth / 2, 0, 0], rotation: [0, Math.PI / 2, 0] },
+    { position: [-halfSize - plateDepth / 2, 0, 0], rotation: [0, -Math.PI / 2, 0] },
+  ];
+
+  for (const plate of plates) {
+    const mesh = new THREE.Mesh(plateGeometry, material);
+    mesh.position.set(...plate.position);
+    mesh.rotation.set(...plate.rotation);
+    group.add(mesh);
+  }
+}
+
+function addGeneEdgeBridges(group, cubeSize, depth, color) {
+  const halfSize = cubeSize / 2;
+  const edgeOffset = halfSize + depth * 0.52;
+  const edgeThickness = depth * 0.72;
+  const edgeLength = cubeSize + depth * 0.85;
+  const edgeGeometry = new RoundedBoxGeometry(
+    edgeThickness,
+    edgeThickness,
+    edgeLength,
+    2,
+    edgeThickness * 0.28
+  );
+  const edgeMaterial = new THREE.MeshBasicMaterial({
+    color,
+    transparent: true,
+    opacity: 0.28,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+  });
+
+  const addEdge = (position, rotation = [0, 0, 0]) => {
+    const edge = new THREE.Mesh(edgeGeometry, edgeMaterial);
+    edge.position.set(...position);
+    edge.rotation.set(...rotation);
+    group.add(edge);
+  };
+
+  // 4 vertical edges parallel to Z on the front/back seam columns.
+  for (const x of [-edgeOffset, edgeOffset]) {
+    for (const y of [-edgeOffset, edgeOffset]) {
+      addEdge([x, y, 0]);
+    }
+  }
+
+  // 4 edges parallel to X.
+  for (const y of [-edgeOffset, edgeOffset]) {
+    for (const z of [-edgeOffset, edgeOffset]) {
+      addEdge([0, y, z], [0, Math.PI / 2, 0]);
+    }
+  }
+
+  // 4 edges parallel to Y.
+  for (const x of [-edgeOffset, edgeOffset]) {
+    for (const z of [-edgeOffset, edgeOffset]) {
+      addEdge([x, 0, z], [Math.PI / 2, 0, 0]);
+    }
+  }
 }
 
 function buildMaterials(qrCanvases, materialMode = 'standard') {
@@ -310,8 +468,13 @@ function buildMaterials(qrCanvases, materialMode = 'standard') {
   for (let i = 0; i < 6; i++) {
     const canvas = qrCanvases[i] || createPlaceholderCanvas(i + 1);
     const texture = new THREE.CanvasTexture(canvas);
-    texture.minFilter = THREE.LinearFilter;
-    texture.magFilter = THREE.LinearFilter;
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.minFilter = THREE.NearestFilter;
+    texture.magFilter = THREE.NearestFilter;
+    texture.wrapS = THREE.ClampToEdgeWrapping;
+    texture.wrapT = THREE.ClampToEdgeWrapping;
+    texture.generateMipmaps = false;
+    texture.anisotropy = 1;
 
     if (materialMode === 'glass') {
       // Glass material with transparency and reflections
