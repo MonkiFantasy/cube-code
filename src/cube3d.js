@@ -225,24 +225,13 @@ function createGeneCube(qrCanvases, geneColor) {
   const depth = 0.125; // Depth of raised dark modules
   const baseDepth = 0.035; // Thin translucent tiles for light/empty modules
 
-  // QR code settings
-  const qrSize = 256;
-  const moduleSize = 8;
-  const numModules = Math.floor(qrSize / moduleSize);
-  const module3DSize = cubeSize / numModules;
-  // Slightly oversize every tile to remove hairline cracks caused by
-  // floating-point precision, texture sampling and rounded bevels at face seams.
-  const seamOverlap = module3DSize * 0.018;
-  const tileSize = module3DSize + seamOverlap;
-  const edgeWrap = baseDepth * 1.4;
-
   const moduleGeometries = new Map();
-  const getRaisedGeometry = (row, col) => {
+  const getRaisedGeometry = (row, col, numModules, tileSize, module3DSize, edgeWrap) => {
     const left = col === 0;
     const right = col === numModules - 1;
     const top = row === 0;
     const bottom = row === numModules - 1;
-    const key = `${left}-${right}-${top}-${bottom}`;
+    const key = `${numModules}-${left}-${right}-${top}-${bottom}`;
     if (!moduleGeometries.has(key)) {
       moduleGeometries.set(key, new RoundedBoxGeometry(
         tileSize + (left || right ? edgeWrap * 2 : 0),
@@ -269,40 +258,45 @@ function createGeneCube(qrCanvases, geneColor) {
     depthWrite: false,
   });
 
-  // The translucent "light" layer is intentionally a square cuboid and wraps
-  // past the mathematical cube edge. Adjacent faces overlap slightly at their
-  // own boundaries, so the cube is sealed by the face pixels themselves instead
-  // of by an added outside frame.
-  const baseGeometry = new THREE.BoxGeometry(
-    tileSize + edgeWrap * 2,
-    tileSize + edgeWrap * 2,
-    baseDepth,
-  );
-
   // Process each face
   for (let faceIdx = 0; faceIdx < 6; faceIdx++) {
     const canvas = qrCanvases[faceIdx];
     if (!canvas) continue;
 
     const ctx = canvas.getContext('2d');
-    const imageData = ctx.getImageData(0, 0, qrSize, qrSize);
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
     const pixels = imageData.data;
+    const bounds = detectQRContentBounds(imageData);
+    const numModules = estimateQRModuleCount(bounds.size, canvas.width);
+    const modulePixelSize = bounds.size / numModules;
+    const module3DSize = cubeSize / numModules;
+    // Slightly oversize every tile to remove hairline cracks caused by
+    // floating-point precision, texture sampling and rounded bevels at face seams.
+    const seamOverlap = module3DSize * 0.018;
+    const tileSize = module3DSize + seamOverlap;
+    const edgeWrap = baseDepth * 1.4;
+    // The translucent "light" layer is intentionally a square cuboid and wraps
+    // past the mathematical cube edge. Adjacent faces overlap slightly at their
+    // own boundaries, so the cube is sealed by the face pixels themselves instead
+    // of by an added outside frame.
+    const baseGeometry = new THREE.BoxGeometry(
+      tileSize + edgeWrap * 2,
+      tileSize + edgeWrap * 2,
+      baseDepth,
+    );
 
     const boxIdx = FACE_TO_BOX[faceIdx];
 
     // Process each module in the QR code
     for (let row = 0; row < numModules; row++) {
       for (let col = 0; col < numModules; col++) {
-        // Get pixel position in canvas
-        const px = col * moduleSize + moduleSize / 2;
-        const py = row * moduleSize + moduleSize / 2;
-        const pixelIdx = (py * qrSize + px) * 4;
-
-        // Check if this module is dark (part of QR code)
-        const r = pixels[pixelIdx];
-        const g = pixels[pixelIdx + 1];
-        const b = pixels[pixelIdx + 2];
-        const brightness = (r + g + b) / 3;
+        // Sample inside the real QR square only. The canvas quiet zone / extra
+        // blank margin is deliberately ignored; the finder-pattern square is
+        // what becomes the physical cube face.
+        const px = Math.min(canvas.width - 1, Math.max(0, Math.round(bounds.minX + (col + 0.5) * modulePixelSize)));
+        const py = Math.min(canvas.height - 1, Math.max(0, Math.round(bounds.minY + (row + 0.5) * modulePixelSize)));
+        const pixelIdx = (py * canvas.width + px) * 4;
+        const isModule = isForegroundPixel(pixels, pixelIdx, bounds.background);
 
         // A low translucent tile is rendered for every QR module. This keeps
         // each face physically continuous (so neighbouring faces meet cleanly)
@@ -313,9 +307,9 @@ function createGeneCube(qrCanvases, geneColor) {
         positionGeneTile(baseMesh, boxIdx, x, y, halfSize + baseDepth / 2);
         group.add(baseMesh);
 
-        // Dark modules are part of the QR code
-        if (brightness < 128) {
-          const mesh = new THREE.Mesh(getRaisedGeometry(row, col), moduleMaterial);
+        // Foreground modules are part of the QR code relief.
+        if (isModule) {
+          const mesh = new THREE.Mesh(getRaisedGeometry(row, col, numModules, tileSize, module3DSize, edgeWrap), moduleMaterial);
           positionGeneTile(mesh, boxIdx, x, y, halfSize + baseDepth + depth / 2);
           group.add(mesh);
         }
@@ -350,6 +344,96 @@ function createGeneCube(qrCanvases, geneColor) {
   }
 
   return group;
+}
+
+function detectQRContentBounds(imageData) {
+  const { width, height, data } = imageData;
+  const background = sampleCornerBackground(imageData);
+  let minX = width;
+  let minY = height;
+  let maxX = -1;
+  let maxY = -1;
+
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const idx = (y * width + x) * 4;
+      if (isForegroundPixel(data, idx, background)) {
+        minX = Math.min(minX, x);
+        minY = Math.min(minY, y);
+        maxX = Math.max(maxX, x);
+        maxY = Math.max(maxY, y);
+      }
+    }
+  }
+
+  if (maxX < minX || maxY < minY) {
+    return { minX: 0, minY: 0, maxX: width - 1, maxY: height - 1, size: Math.min(width, height), background };
+  }
+
+  // Use a perfect square derived from the non-background finder/module bounds.
+  // This removes QR quiet-zone whitespace from the physical face.
+  const contentWidth = maxX - minX + 1;
+  const contentHeight = maxY - minY + 1;
+  const size = Math.max(contentWidth, contentHeight);
+  const cx = (minX + maxX) / 2;
+  const cy = (minY + maxY) / 2;
+  minX = Math.max(0, cx - size / 2);
+  minY = Math.max(0, cy - size / 2);
+
+  return {
+    minX,
+    minY,
+    maxX: Math.min(width - 1, minX + size - 1),
+    maxY: Math.min(height - 1, minY + size - 1),
+    size,
+    background,
+  };
+}
+
+function sampleCornerBackground(imageData) {
+  const { width, height, data } = imageData;
+  const sampleSize = Math.max(3, Math.floor(Math.min(width, height) * 0.04));
+  const corners = [
+    [0, 0],
+    [width - sampleSize, 0],
+    [0, height - sampleSize],
+    [width - sampleSize, height - sampleSize],
+  ];
+  const color = [0, 0, 0];
+  let count = 0;
+
+  for (const [startX, startY] of corners) {
+    for (let y = startY; y < startY + sampleSize; y++) {
+      for (let x = startX; x < startX + sampleSize; x++) {
+        const idx = (y * width + x) * 4;
+        color[0] += data[idx];
+        color[1] += data[idx + 1];
+        color[2] += data[idx + 2];
+        count++;
+      }
+    }
+  }
+
+  return color.map((value) => value / count);
+}
+
+function isForegroundPixel(pixels, idx, background) {
+  const dr = pixels[idx] - background[0];
+  const dg = pixels[idx + 1] - background[1];
+  const db = pixels[idx + 2] - background[2];
+  return Math.hypot(dr, dg, db) > 38;
+}
+
+function estimateQRModuleCount(contentSize, canvasSize) {
+  // QRCode.toCanvas was called with margin: 2, so:
+  // contentSize ≈ canvasSize * modules / (modules + 4)
+  // modules ≈ 4 * contentSize / (canvasSize - contentSize)
+  const raw = 4 * contentSize / Math.max(1, canvasSize - contentSize);
+  const qrCounts = [];
+  for (let count = 21; count <= 177; count += 4) qrCounts.push(count);
+  return qrCounts.reduce((best, count) => (
+    Math.abs(count - raw) < Math.abs(best - raw) ? count : best
+  ), 21);
 }
 
 function positionGeneTile(mesh, boxIdx, x, y, normalOffset) {
