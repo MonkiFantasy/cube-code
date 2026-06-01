@@ -317,33 +317,83 @@ function createGeneCube(qrCanvases, geneColor) {
     }
   }
 
-  // Add internal light sources for a premium acrylic/neon glow.
-  const pointLight = new THREE.PointLight(color, 4.2, 4.2, 1.6);
+  // Add local internal lights for a premium acrylic/neon glow.
+  // Keep the light concentrated inside the material instead of drawing a
+  // visible full-ball halo around the cube.
+  const pointLight = new THREE.PointLight(color, 3.2, 3.0, 1.8);
   pointLight.position.set(0, 0, 0);
   group.add(pointLight);
-  const topLight = new THREE.PointLight(0xffffff, 1.2, 3.2, 2);
-  topLight.position.set(0.45, 0.55, 0.45);
+  const topLight = new THREE.PointLight(0xffffff, 0.9, 2.4, 2);
+  topLight.position.set(0.42, 0.55, 0.36);
   group.add(topLight);
-
-  // Layered additive halos: cheaper than post-processing bloom but gives a
-  // softer, more advanced glow in both desktop and mobile WebViews.
-  const glowLayers = [
-    { size: 1.2, opacity: 0.12 },
-    { size: 1.8, opacity: 0.045 },
-  ];
-  for (const layer of glowLayers) {
-    const glowGeometry = new THREE.SphereGeometry(layer.size, 32, 32);
-    const glowMaterial = new THREE.MeshBasicMaterial({
-      color,
-      transparent: true,
-      opacity: layer.opacity,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false,
-    });
-    group.add(new THREE.Mesh(glowGeometry, glowMaterial));
-  }
+  addGeneEnergyGlows(group, color);
 
   return group;
+}
+
+function addGeneEnergyGlows(group, color) {
+  const glowTexture = createGlowTexture(color);
+  const sparkPositions = [
+    [-0.76, 0.72, 0.78, 0.34, 0.22],
+    [0.78, 0.62, 0.38, 0.28, 0.18],
+    [-0.56, -0.8, 0.72, 0.26, 0.16],
+    [0.72, -0.7, -0.58, 0.22, 0.13],
+    [0.18, 0.88, -0.7, 0.2, 0.12],
+  ];
+
+  for (const [x, y, z, scale, opacity] of sparkPositions) {
+    const sprite = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: glowTexture,
+      color,
+      transparent: true,
+      opacity,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      depthTest: false,
+    }));
+    sprite.position.set(x, y, z);
+    sprite.scale.set(scale, scale, 1);
+    group.add(sprite);
+  }
+
+  const beamMaterial = new THREE.MeshBasicMaterial({
+    color,
+    transparent: true,
+    opacity: 0.18,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+  });
+  const beams = [
+    { position: [-1.04, 0.18, 0.82], rotation: [0.25, 0.1, -0.64], length: 1.35, width: 0.025 },
+    { position: [0.74, 0.88, 0.26], rotation: [0.1, -0.75, 0.45], length: 1.15, width: 0.02 },
+    { position: [0.96, -0.34, -0.62], rotation: [-0.35, 0.48, 0.18], length: 1.05, width: 0.018 },
+  ];
+
+  for (const beam of beams) {
+    const geometry = new THREE.PlaneGeometry(beam.width, beam.length);
+    const mesh = new THREE.Mesh(geometry, beamMaterial);
+    mesh.position.set(...beam.position);
+    mesh.rotation.set(...beam.rotation);
+    group.add(mesh);
+  }
+}
+
+function createGlowTexture(color) {
+  const canvas = document.createElement('canvas');
+  canvas.width = 128;
+  canvas.height = 128;
+  const ctx = canvas.getContext('2d');
+  const gradient = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
+  gradient.addColorStop(0, 'rgba(255,255,255,0.95)');
+  gradient.addColorStop(0.18, `${color}cc`);
+  gradient.addColorStop(0.45, `${color}55`);
+  gradient.addColorStop(1, `${color}00`);
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, 128, 128);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return texture;
 }
 
 function detectQRContentBounds(imageData) {
