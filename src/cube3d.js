@@ -28,7 +28,7 @@ export function createCube(container, qrCanvases, { materialMode = 'standard', g
   const height = container.clientWidth;
 
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(materialMode === 'gene' ? 0x070816 : 0xf5f5f5);
+  scene.background = new THREE.Color(0xf5f5f5);
 
   // Add environment map for glass/gene reflections
   let pmremGenerator = null;
@@ -202,8 +202,8 @@ function createGeneCube(qrCanvases, geneColor) {
   const moduleMaterial = new THREE.MeshPhysicalMaterial({
     color: color,
     emissive: glowColor,
-    emissiveIntensity: 0.42,
-    transmission: 0.62,
+    emissiveIntensity: 0.32,
+    transmission: 0.38,
     roughness: 0.075,
     metalness: 0.0,
     ior: 1.49,
@@ -212,7 +212,7 @@ function createGeneCube(qrCanvases, geneColor) {
     clearcoat: 1.0,
     clearcoatRoughness: 0.05,
     transparent: true,
-    opacity: 0.92,
+    opacity: 0.98,
   });
 
   // Cube dimensions
@@ -243,14 +243,14 @@ function createGeneCube(qrCanvases, geneColor) {
   const baseMaterial = new THREE.MeshPhysicalMaterial({
     color,
     emissive: glowColor,
-    emissiveIntensity: 0.16,
+    emissiveIntensity: 0.1,
     roughness: 0.16,
-    transmission: 0.78,
+    transmission: 0.52,
     thickness: 0.24,
     clearcoat: 1,
     clearcoatRoughness: 0.06,
     transparent: true,
-    opacity: 0.13,
+    opacity: 0.22,
     depthWrite: false,
   });
 

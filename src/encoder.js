@@ -37,9 +37,9 @@ const FACE_COLORS_INVERTED_COLORFUL = [
 ];
 
 const GENE_QR_COLORS = {
-  purple: { dark: '#8B5CF6', light: '#120A2A' },
-  red: { dark: '#EF4444', light: '#2A0808' },
-  blue: { dark: '#3B82F6', light: '#06152E' },
+  purple: { dark: '#8B5CF6', light: '#ffffff' },
+  red: { dark: '#EF4444', light: '#ffffff' },
+  blue: { dark: '#3B82F6', light: '#ffffff' },
 };
 
 // Fusion mode colors (gene code + cube fusion aesthetic)
