@@ -36,15 +36,11 @@ const FACE_COLORS_INVERTED_COLORFUL = [
   { dark: '#ffffff', light: '#0046AD' }, // face6: white on blue
 ];
 
-// Season limited code colors (tech/cyber aesthetic)
-const FACE_COLORS_GENE = [
-  { dark: '#00ff88', light: '#001122' }, // face1: neon green on dark blue
-  { dark: '#00ccff', light: '#001122' }, // face2: cyan on dark blue
-  { dark: '#ff00ff', light: '#001122' }, // face3: magenta on dark blue
-  { dark: '#ffcc00', light: '#001122' }, // face4: golden yellow on dark blue (improved contrast)
-  { dark: '#ff6600', light: '#001122' }, // face5: orange on dark blue
-  { dark: '#ff0066', light: '#001122' }, // face6: pink on dark blue
-];
+const GENE_QR_COLORS = {
+  purple: { dark: '#8B5CF6', light: '#120A2A' },
+  red: { dark: '#EF4444', light: '#2A0808' },
+  blue: { dark: '#3B82F6', light: '#06152E' },
+};
 
 // Fusion mode colors (gene code + cube fusion aesthetic)
 const FACE_COLORS_FUSION = [
@@ -66,8 +62,9 @@ const FACE_COLORS_FUSION = [
  * @param {number} options.numFaces - Number of faces (1-6, default 6)
  * @param {boolean} options.independent - If true, each QR contains full data independently
  * @param {string} options.errorLevel - Error correction level: 'L', 'M', 'Q', 'H' (default 'M')
+ * @param {string} options.geneColor - Gene material color: purple/red/blue
  */
-export async function encodeToCubeCode(data, { mode = 'colorful', icon = null, numFaces = 6, independent = false, errorLevel = 'M' } = {}) {
+export async function encodeToCubeCode(data, { mode = 'colorful', icon = null, numFaces = 6, independent = false, errorLevel = 'M', geneColor = 'purple' } = {}) {
   const encoder = new TextEncoder();
   const dataBytes = encoder.encode(data);
 
@@ -83,9 +80,12 @@ export async function encodeToCubeCode(data, { mode = 'colorful', icon = null, n
     ? Array(numFaces).fill(fullPayload)
     : splitData(fullPayload, numFaces);
 
+  const selectedGeneColor = GENE_QR_COLORS[geneColor] || GENE_QR_COLORS.purple;
+  const geneColorMap = Array(6).fill(selectedGeneColor);
+
   const colorMap = mode === 'inverted' ? FACE_COLORS_INVERTED
     : mode === 'inverted-colorful' ? FACE_COLORS_INVERTED_COLORFUL
-    : mode === 'gene' ? FACE_COLORS_GENE
+    : mode === 'gene' ? geneColorMap
     : mode === 'fusion' ? FACE_COLORS_FUSION
     : FACE_COLORS;
 
@@ -118,7 +118,7 @@ export async function encodeToCubeCode(data, { mode = 'colorful', icon = null, n
 
     // Add gene code center pattern if in gene mode or fusion mode
     if (mode === 'gene' || mode === 'fusion') {
-      overlayGenePattern(canvas, i);
+      overlayGenePattern(canvas, i, mode === 'gene' ? selectedGeneColor : null);
     }
 
     // Add fusion-specific enhancements if in fusion mode
@@ -160,7 +160,7 @@ function overlayIcon(canvas, icon) {
  * @param {HTMLCanvasElement} canvas - The QR code canvas
  * @param {number} faceIndex - The face index (0-5) for color variation
  */
-function overlayGenePattern(canvas, faceIndex) {
+function overlayGenePattern(canvas, faceIndex, forcedColor = null) {
   const ctx = canvas.getContext('2d');
   const size = canvas.width;
   const centerX = size / 2;
@@ -168,14 +168,14 @@ function overlayGenePattern(canvas, faceIndex) {
   const patternSize = size * 0.3; // Pattern is 30% of QR code size
 
   // Clear center area
-  ctx.fillStyle = '#001122';
+  ctx.fillStyle = forcedColor?.light || '#001122';
   ctx.beginPath();
   ctx.arc(centerX, centerY, patternSize / 2 + 4, 0, Math.PI * 2);
   ctx.fill();
 
   // Draw hexagon pattern
   const colors = ['#00ff88', '#00ccff', '#ff00ff', '#ffff00', '#ff6600', '#ff0066'];
-  const color = colors[faceIndex % colors.length];
+  const color = forcedColor?.dark || colors[faceIndex % colors.length];
 
   ctx.strokeStyle = color;
   ctx.lineWidth = 2;
@@ -290,4 +290,3 @@ function concatBytes(arrays) {
   }
   return result;
 }
-

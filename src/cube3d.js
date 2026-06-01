@@ -23,7 +23,7 @@ export const GENE_COLORS = [
  * @param {string} options.geneColor - Gene code color: 'purple', 'red', or 'blue'
  * @param {boolean} options.enableSnapRotation - Enable snap-to-face rotation
  */
-export function createCube(container, qrCanvases, { materialMode = 'standard', geneColor = 'purple', enableSnapRotation = false } = {}) {
+export function createCube(container, qrCanvases, { materialMode = 'standard', geneColor = 'purple', enableSnapRotation: _enableSnapRotation = false } = {}) {
   const width = container.clientWidth;
   const height = container.clientWidth;
 
@@ -61,23 +61,22 @@ export function createCube(container, qrCanvases, { materialMode = 'standard', g
   controls.autoRotateSpeed = 1.5;
 
   // Snap-to-face rotation
-  let isSnapRotationEnabled = enableSnapRotation;
   let snapTarget = null;
   let isSnapping = false;
 
-  // Face rotation targets (in radians)
-  const SNAP_ANGLES = {
-    front: { x: 0, y: 0 },      // +Z face
-    back: { x: 0, y: Math.PI },  // -Z face
-    top: { x: -Math.PI / 2, y: 0 }, // +Y face
-    bottom: { x: Math.PI / 2, y: 0 }, // -Y face
-    left: { x: 0, y: Math.PI / 2 },  // -X face
-    right: { x: 0, y: -Math.PI / 2 }, // +X face
+  // Face camera targets. Moving the camera position works reliably with
+  // OrbitControls; setting camera.rotation directly is overwritten by controls.
+  const SNAP_POSITIONS = {
+    front: new THREE.Vector3(0, 0, 4.0),      // +Z face
+    back: new THREE.Vector3(0, 0, -4.0),      // -Z face
+    top: new THREE.Vector3(0, 4.0, 0.001),    // +Y face
+    bottom: new THREE.Vector3(0, -4.0, 0.001), // -Y face
+    left: new THREE.Vector3(-4.0, 0, 0),      // -X face
+    right: new THREE.Vector3(4.0, 0, 0),      // +X face
   };
 
   function snapToFace(faceName) {
-    if (!isSnapRotationEnabled) return;
-    snapTarget = SNAP_ANGLES[faceName];
+    snapTarget = SNAP_POSITIONS[faceName];
     if (snapTarget) {
       isSnapping = true;
       controls.autoRotate = false;
@@ -87,24 +86,21 @@ export function createCube(container, qrCanvases, { materialMode = 'standard', g
   function updateSnapRotation() {
     if (!isSnapping || !snapTarget) return;
 
-    const dampingFactor = 0.1;
-    const threshold = 0.01;
+    const dampingFactor = 0.12;
+    const threshold = 0.015;
 
-    // Smoothly interpolate to target rotation
-    const dx = snapTarget.x - camera.rotation.x;
-    const dy = snapTarget.y - camera.rotation.y;
+    camera.position.lerp(snapTarget, dampingFactor);
+    controls.target.set(0, 0, 0);
+    camera.lookAt(controls.target);
 
-    if (Math.abs(dx) < threshold && Math.abs(dy) < threshold) {
-      camera.rotation.x = snapTarget.x;
-      camera.rotation.y = snapTarget.y;
+    if (camera.position.distanceTo(snapTarget) < threshold) {
+      camera.position.copy(snapTarget);
+      camera.lookAt(controls.target);
       isSnapping = false;
       snapTarget = null;
-      controls.autoRotate = true;
+      controls.autoRotate = false;
       return;
     }
-
-    camera.rotation.x += dx * dampingFactor;
-    camera.rotation.y += dy * dampingFactor;
   }
 
   const ambient = new THREE.AmbientLight(0xffffff, materialMode === 'gene' ? 0.35 : 0.8);
@@ -178,7 +174,7 @@ export function createCube(container, qrCanvases, { materialMode = 'standard', g
       snapToFace(faceName);
     },
     setSnapRotation(enabled) {
-      isSnapRotationEnabled = enabled;
+      controls.autoRotate = enabled;
     },
     dispose() {
       cancelAnimationFrame(animId);
