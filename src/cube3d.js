@@ -222,7 +222,8 @@ function createGeneCube(qrCanvases, geneColor) {
   // Cube dimensions
   const cubeSize = 1.8;
   const halfSize = cubeSize / 2;
-  const depth = 0.125; // Depth of each module
+  const depth = 0.125; // Depth of raised dark modules
+  const baseDepth = 0.035; // Thin translucent tiles for light/empty modules
 
   // QR code settings
   const qrSize = 256;
@@ -243,41 +244,27 @@ function createGeneCube(qrCanvases, geneColor) {
     module3DSize * 0.045
   );
 
-  const seamMaterial = new THREE.MeshPhysicalMaterial({
+  const baseMaterial = new THREE.MeshPhysicalMaterial({
     color,
     emissive: glowColor,
-    emissiveIntensity: 0.3,
-    roughness: 0.12,
-    transmission: 0.72,
-    thickness: 0.35,
+    emissiveIntensity: 0.16,
+    roughness: 0.16,
+    transmission: 0.78,
+    thickness: 0.24,
     clearcoat: 1,
-    clearcoatRoughness: 0.04,
+    clearcoatRoughness: 0.06,
     transparent: true,
-    opacity: 0.2,
+    opacity: 0.18,
     depthWrite: false,
   });
 
-  // A nearly invisible inner cube catches the rear side of all face modules.
-  // It makes the six planes read as one physically joined object instead of
-  // six independent floating skins, without covering/scanning QR modules.
-  const core = new THREE.Mesh(
-    new THREE.BoxGeometry(cubeSize * 0.998, cubeSize * 0.998, cubeSize * 0.998),
-    new THREE.MeshPhysicalMaterial({
-      color,
-      emissive: glowColor,
-      emissiveIntensity: 0.08,
-      roughness: 0.18,
-      transmission: 0.84,
-      thickness: 1.0,
-      transparent: true,
-      opacity: 0.08,
-      depthWrite: false,
-    })
+  const baseGeometry = new RoundedBoxGeometry(
+    tileSize,
+    tileSize,
+    baseDepth,
+    1,
+    module3DSize * 0.025
   );
-  group.add(core);
-
-  addGeneFaceBackplates(group, cubeSize, depth, seamMaterial);
-  addGeneEdgeBridges(group, cubeSize, depth, color);
 
   // Process each face
   for (let faceIdx = 0; faceIdx < 6; faceIdx++) {
@@ -304,43 +291,20 @@ function createGeneCube(qrCanvases, geneColor) {
         const b = pixels[pixelIdx + 2];
         const brightness = (r + g + b) / 3;
 
+        // A low translucent tile is rendered for every QR module. This keeps
+        // each face physically continuous (so neighbouring faces meet cleanly)
+        // while the actual dark QR modules rise above it as relief blocks.
+        const x = (col - numModules / 2) * module3DSize + module3DSize / 2;
+        const y = (row - numModules / 2) * module3DSize + module3DSize / 2;
+        const baseMesh = new THREE.Mesh(baseGeometry, baseMaterial);
+        positionGeneTile(baseMesh, boxIdx, x, y, halfSize + baseDepth / 2);
+        group.add(baseMesh);
+
         // Dark modules are part of the QR code
         if (brightness < 128) {
-          // Calculate 3D position (no gap - modules touch each other)
-          const x = (col - numModules / 2) * module3DSize + module3DSize / 2;
-          const y = (row - numModules / 2) * module3DSize + module3DSize / 2;
-          const z = halfSize;
-
           // Create mesh using shared geometry
           const mesh = new THREE.Mesh(moduleGeometry, moduleMaterial);
-
-          // Position and rotate based on face
-          switch (boxIdx) {
-            case 0: // +X face (right)
-              mesh.position.set(z + depth / 2, -y, -x);
-              mesh.rotation.y = Math.PI / 2;
-              break;
-            case 1: // -X face (left)
-              mesh.position.set(-z - depth / 2, -y, x);
-              mesh.rotation.y = -Math.PI / 2;
-              break;
-            case 2: // +Y face (top)
-              mesh.position.set(x, z + depth / 2, y);
-              mesh.rotation.x = -Math.PI / 2;
-              break;
-            case 3: // -Y face (bottom)
-              mesh.position.set(x, -z - depth / 2, -y);
-              mesh.rotation.x = Math.PI / 2;
-              break;
-            case 4: // +Z face (front)
-              mesh.position.set(x, -y, z + depth / 2);
-              break;
-            case 5: // -Z face (back)
-              mesh.position.set(-x, -y, -z - depth / 2);
-              mesh.rotation.y = Math.PI;
-              break;
-          }
-
+          positionGeneTile(mesh, boxIdx, x, y, halfSize + baseDepth + depth / 2);
           group.add(mesh);
         }
       }
@@ -358,9 +322,8 @@ function createGeneCube(qrCanvases, geneColor) {
   // Layered additive halos: cheaper than post-processing bloom but gives a
   // softer, more advanced glow in both desktop and mobile WebViews.
   const glowLayers = [
-    { size: 1.45, opacity: 0.16 },
-    { size: 2.1, opacity: 0.07 },
-    { size: 2.85, opacity: 0.035 },
+    { size: 1.2, opacity: 0.12 },
+    { size: 1.8, opacity: 0.045 },
   ];
   for (const layer of glowLayers) {
     const glowGeometry = new THREE.SphereGeometry(layer.size, 32, 32);
@@ -374,92 +337,34 @@ function createGeneCube(qrCanvases, geneColor) {
     group.add(new THREE.Mesh(glowGeometry, glowMaterial));
   }
 
-  // Thin outer shell adds continuous edge highlights so the six faces appear
-  // perfectly attached even where QR modules are sparse near an edge.
-  const shell = new THREE.Mesh(
-    new THREE.BoxGeometry(cubeSize + depth * 2.04, cubeSize + depth * 2.04, cubeSize + depth * 2.04),
-    new THREE.MeshBasicMaterial({
-      color,
-      transparent: true,
-      opacity: 0.055,
-      blending: THREE.AdditiveBlending,
-      side: THREE.BackSide,
-      depthWrite: false,
-    })
-  );
-  group.add(shell);
-
   return group;
 }
 
-function addGeneFaceBackplates(group, cubeSize, depth, material) {
-  const halfSize = cubeSize / 2;
-  const plateDepth = depth * 0.16;
-  const plateGeometry = new THREE.BoxGeometry(cubeSize, cubeSize, plateDepth);
-
-  const plates = [
-    { position: [0, 0, halfSize + plateDepth / 2], rotation: [0, 0, 0] },
-    { position: [0, 0, -halfSize - plateDepth / 2], rotation: [0, Math.PI, 0] },
-    { position: [0, halfSize + plateDepth / 2, 0], rotation: [-Math.PI / 2, 0, 0] },
-    { position: [0, -halfSize - plateDepth / 2, 0], rotation: [Math.PI / 2, 0, 0] },
-    { position: [halfSize + plateDepth / 2, 0, 0], rotation: [0, Math.PI / 2, 0] },
-    { position: [-halfSize - plateDepth / 2, 0, 0], rotation: [0, -Math.PI / 2, 0] },
-  ];
-
-  for (const plate of plates) {
-    const mesh = new THREE.Mesh(plateGeometry, material);
-    mesh.position.set(...plate.position);
-    mesh.rotation.set(...plate.rotation);
-    group.add(mesh);
-  }
-}
-
-function addGeneEdgeBridges(group, cubeSize, depth, color) {
-  const halfSize = cubeSize / 2;
-  const edgeOffset = halfSize + depth * 0.52;
-  const edgeThickness = depth * 0.72;
-  const edgeLength = cubeSize + depth * 0.85;
-  const edgeGeometry = new RoundedBoxGeometry(
-    edgeThickness,
-    edgeThickness,
-    edgeLength,
-    2,
-    edgeThickness * 0.28
-  );
-  const edgeMaterial = new THREE.MeshBasicMaterial({
-    color,
-    transparent: true,
-    opacity: 0.28,
-    blending: THREE.AdditiveBlending,
-    depthWrite: false,
-  });
-
-  const addEdge = (position, rotation = [0, 0, 0]) => {
-    const edge = new THREE.Mesh(edgeGeometry, edgeMaterial);
-    edge.position.set(...position);
-    edge.rotation.set(...rotation);
-    group.add(edge);
-  };
-
-  // 4 vertical edges parallel to Z on the front/back seam columns.
-  for (const x of [-edgeOffset, edgeOffset]) {
-    for (const y of [-edgeOffset, edgeOffset]) {
-      addEdge([x, y, 0]);
-    }
-  }
-
-  // 4 edges parallel to X.
-  for (const y of [-edgeOffset, edgeOffset]) {
-    for (const z of [-edgeOffset, edgeOffset]) {
-      addEdge([0, y, z], [0, Math.PI / 2, 0]);
-    }
-  }
-
-  // 4 edges parallel to Y.
-  for (const x of [-edgeOffset, edgeOffset]) {
-    for (const z of [-edgeOffset, edgeOffset]) {
-      addEdge([x, 0, z], [Math.PI / 2, 0, 0]);
-    }
+function positionGeneTile(mesh, boxIdx, x, y, normalOffset) {
+  switch (boxIdx) {
+    case 0: // +X face (right)
+      mesh.position.set(normalOffset, -y, -x);
+      mesh.rotation.y = Math.PI / 2;
+      break;
+    case 1: // -X face (left)
+      mesh.position.set(-normalOffset, -y, x);
+      mesh.rotation.y = -Math.PI / 2;
+      break;
+    case 2: // +Y face (top)
+      mesh.position.set(x, normalOffset, y);
+      mesh.rotation.x = -Math.PI / 2;
+      break;
+    case 3: // -Y face (bottom)
+      mesh.position.set(x, -normalOffset, -y);
+      mesh.rotation.x = Math.PI / 2;
+      break;
+    case 4: // +Z face (front)
+      mesh.position.set(x, -y, normalOffset);
+      break;
+    case 5: // -Z face (back)
+      mesh.position.set(-x, -y, -normalOffset);
+      mesh.rotation.y = Math.PI;
+      break;
   }
 }
 
