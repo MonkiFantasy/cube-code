@@ -42,16 +42,6 @@ const GENE_QR_COLORS = {
   blue: { dark: '#3B82F6', light: '#ffffff' },
 };
 
-// Fusion mode colors (gene code + cube fusion aesthetic)
-const FACE_COLORS_FUSION = [
-  { dark: '#00ff88', light: '#0a0a1a' }, // face1: neon green on dark
-  { dark: '#00ccff', light: '#0a0a1a' }, // face2: cyan on dark
-  { dark: '#ff00ff', light: '#0a0a1a' }, // face3: magenta on dark
-  { dark: '#ffcc00', light: '#0a0a1a' }, // face4: golden yellow on dark (improved contrast)
-  { dark: '#ff6600', light: '#0a0a1a' }, // face5: orange on dark
-  { dark: '#ff0066', light: '#0a0a1a' }, // face6: pink on dark
-];
-
 /**
  * Encode data into QR code canvases with Rubik's cube colors.
  * Returns an array of { faceId, canvas } objects.
@@ -84,12 +74,11 @@ export async function encodeToCubeCode(data, { mode = 'colorful', icon = null, n
   const colorMap = mode === 'inverted' ? FACE_COLORS_INVERTED
     : mode === 'inverted-colorful' ? FACE_COLORS_INVERTED_COLORFUL
     : mode === 'gene' ? geneColorMap
-    : mode === 'fusion' ? FACE_COLORS_FUSION
     : FACE_COLORS;
 
-  // Use error correction level H when icon is present, gene mode, or fusion mode to allow center overlay
+  // Use error correction level H when icon is present to allow center overlay.
   // But allow user override via errorLevel parameter
-  const finalErrorLevel = (icon || mode === 'gene' || mode === 'fusion') ? 'H' : errorLevel;
+  const finalErrorLevel = icon ? 'H' : errorLevel;
 
   const results = [];
   const totalFaces = independent ? 6 : numFaces;
@@ -126,16 +115,6 @@ export async function encodeToCubeCode(data, { mode = 'colorful', icon = null, n
     // Overlay icon on center if provided
     if (icon) {
       overlayIcon(canvas, icon);
-    }
-
-    // Add gene code center pattern if in gene mode or fusion mode
-    if (mode === 'gene' || mode === 'fusion') {
-      overlayGenePattern(canvas, i, mode === 'gene' ? selectedGeneColor : null);
-    }
-
-    // Add fusion-specific enhancements if in fusion mode
-    if (mode === 'fusion') {
-      overlayFusionEnhancements(canvas, i);
     }
 
     results.push({ faceId: i + 1, canvas });
@@ -181,130 +160,6 @@ function overlayIcon(canvas, icon) {
 
   // Draw icon
   ctx.drawImage(icon, x, y, iconSize, iconSize);
-}
-
-/**
- * Overlay a gene code pattern on the center of a QR code canvas.
- * Creates a tech/cyber aesthetic with geometric shapes.
- * @param {HTMLCanvasElement} canvas - The QR code canvas
- * @param {number} faceIndex - The face index (0-5) for color variation
- */
-function overlayGenePattern(canvas, faceIndex, forcedColor = null) {
-  const ctx = canvas.getContext('2d');
-  const size = canvas.width;
-  const centerX = size / 2;
-  const centerY = size / 2;
-  const patternSize = size * 0.3; // Pattern is 30% of QR code size
-
-  // Clear center area
-  ctx.fillStyle = forcedColor?.light || '#001122';
-  ctx.beginPath();
-  ctx.arc(centerX, centerY, patternSize / 2 + 4, 0, Math.PI * 2);
-  ctx.fill();
-
-  // Draw hexagon pattern
-  const colors = ['#00ff88', '#00ccff', '#ff00ff', '#ffff00', '#ff6600', '#ff0066'];
-  const color = forcedColor?.dark || colors[faceIndex % colors.length];
-
-  ctx.strokeStyle = color;
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  for (let i = 0; i < 6; i++) {
-    const angle = (i * 60 - 30) * Math.PI / 180;
-    const x = centerX + (patternSize / 2) * Math.cos(angle);
-    const y = centerY + (patternSize / 2) * Math.sin(angle);
-    if (i === 0) ctx.moveTo(x, y);
-    else ctx.lineTo(x, y);
-  }
-  ctx.closePath();
-  ctx.stroke();
-
-  // Draw inner hexagon
-  ctx.beginPath();
-  for (let i = 0; i < 6; i++) {
-    const angle = (i * 60 - 30) * Math.PI / 180;
-    const x = centerX + (patternSize / 4) * Math.cos(angle);
-    const y = centerY + (patternSize / 4) * Math.sin(angle);
-    if (i === 0) ctx.moveTo(x, y);
-    else ctx.lineTo(x, y);
-  }
-  ctx.closePath();
-  ctx.stroke();
-
-  // Draw connecting lines
-  ctx.lineWidth = 1;
-  for (let i = 0; i < 6; i++) {
-    const angle = (i * 60 - 30) * Math.PI / 180;
-    const x1 = centerX + (patternSize / 4) * Math.cos(angle);
-    const y1 = centerY + (patternSize / 4) * Math.sin(angle);
-    const x2 = centerX + (patternSize / 2) * Math.cos(angle);
-    const y2 = centerY + (patternSize / 2) * Math.sin(angle);
-    ctx.beginPath();
-    ctx.moveTo(x1, y1);
-    ctx.lineTo(x2, y2);
-    ctx.stroke();
-  }
-
-  // Draw center dot
-  ctx.fillStyle = color;
-  ctx.beginPath();
-  ctx.arc(centerX, centerY, 4, 0, Math.PI * 2);
-  ctx.fill();
-}
-
-/**
- * Overlay fusion-specific enhancements on the QR code.
- * Adds glowing effects and cube-specific visual elements.
- * @param {HTMLCanvasElement} canvas - The QR code canvas
- * @param {number} faceIndex - The face index (0-5) for color variation
- */
-function overlayFusionEnhancements(canvas, faceIndex) {
-  const ctx = canvas.getContext('2d');
-  const size = canvas.width;
-  const centerX = size / 2;
-  const centerY = size / 2;
-
-  // Add glowing effect around the center pattern
-  const colors = ['#00ff88', '#00ccff', '#ff00ff', '#ffff00', '#ff6600', '#ff0066'];
-  const color = colors[faceIndex % colors.length];
-
-  // Create glowing effect
-  ctx.shadowColor = color;
-  ctx.shadowBlur = 15;
-  ctx.strokeStyle = color;
-  ctx.lineWidth = 2;
-
-  // Draw outer glow circle
-  ctx.beginPath();
-  ctx.arc(centerX, centerY, size * 0.35, 0, Math.PI * 2);
-  ctx.stroke();
-
-  // Reset shadow
-  ctx.shadowBlur = 0;
-
-  // Add cube edge accents
-  ctx.strokeStyle = color;
-  ctx.lineWidth = 1;
-  ctx.globalAlpha = 0.3;
-
-  // Draw corner accents
-  const cornerSize = size * 0.1;
-  const corners = [
-    { x: 0, y: 0 },
-    { x: size, y: 0 },
-    { x: 0, y: size },
-    { x: size, y: size },
-  ];
-
-  for (const corner of corners) {
-    ctx.beginPath();
-    ctx.moveTo(corner.x, corner.y + (corner.y === 0 ? cornerSize : -cornerSize));
-    ctx.lineTo(corner.x, corner.y);
-    ctx.lineTo(corner.x + (corner.x === 0 ? cornerSize : -cornerSize), corner.y);
-    ctx.stroke();
-  }
-
-  ctx.globalAlpha = 1.0;
 }
 
 export { FACE_COLORS };
