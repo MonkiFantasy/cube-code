@@ -63,8 +63,9 @@ const FACE_COLORS_FUSION = [
  * @param {boolean} options.independent - If true, each QR contains full data independently
  * @param {string} options.errorLevel - Error correction level: 'L', 'M', 'Q', 'H' (default 'M')
  * @param {string} options.geneColor - Gene material color: purple/red/blue
+ * @param {HTMLImageElement|HTMLCanvasElement} options.emptyFaceImage - Optional image for unused independent faces
  */
-export async function encodeToCubeCode(data, { mode = 'colorful', icon = null, numFaces = 6, independent = false, errorLevel = 'M', geneColor = 'purple' } = {}) {
+export async function encodeToCubeCode(data, { mode = 'colorful', icon = null, numFaces = 6, independent = false, errorLevel = 'M', geneColor = 'purple', emptyFaceImage = null } = {}) {
   const encoder = new TextEncoder();
   const dataBytes = encoder.encode(data);
 
@@ -75,10 +76,7 @@ export async function encodeToCubeCode(data, { mode = 'colorful', icon = null, n
 
   const fullPayload = concatBytes([versionByte, typeByte, dataBytes, crcBytes]);
 
-  // In independent mode, each face gets the full payload
-  const chunks = independent
-    ? Array(numFaces).fill(fullPayload)
-    : splitData(fullPayload, numFaces);
+  const chunks = splitData(fullPayload, numFaces);
 
   const selectedGeneColor = GENE_QR_COLORS[geneColor] || GENE_QR_COLORS.purple;
   const geneColorMap = Array(6).fill(selectedGeneColor);
@@ -94,10 +92,16 @@ export async function encodeToCubeCode(data, { mode = 'colorful', icon = null, n
   const finalErrorLevel = (icon || mode === 'gene' || mode === 'fusion') ? 'H' : errorLevel;
 
   const results = [];
-  for (let i = 0; i < numFaces; i++) {
-    const facePayload = buildFacePayload(i, chunks[i]);
-    const base64 = bytesToBase64(facePayload);
+  const totalFaces = independent ? 6 : numFaces;
+  for (let i = 0; i < totalFaces; i++) {
     const canvas = document.createElement('canvas');
+    const isEmptyIndependentFace = independent && i >= numFaces;
+
+    if (isEmptyIndependentFace) {
+      drawEmptyFace(canvas, emptyFaceImage);
+      results.push({ faceId: i + 1, canvas });
+      continue;
+    }
 
     const opts = {
       errorCorrectionLevel: finalErrorLevel,
@@ -109,7 +113,15 @@ export async function encodeToCubeCode(data, { mode = 'colorful', icon = null, n
       opts.color = colorMap[i];
     }
 
-    await QRCode.toCanvas(canvas, base64, opts);
+    // Independent mode intentionally creates ordinary QR codes containing the
+    // raw user text, so any phone scanner can read a single face directly.
+    // Non-independent mode keeps the Cube Code protocol for face IDs, splitting
+    // and CRC-protected reassembly.
+    const qrData = independent
+      ? data
+      : bytesToBase64(buildFacePayload(i, chunks[i]));
+
+    await QRCode.toCanvas(canvas, qrData, opts);
 
     // Overlay icon on center if provided
     if (icon) {
@@ -130,6 +142,23 @@ export async function encodeToCubeCode(data, { mode = 'colorful', icon = null, n
   }
 
   return results;
+}
+
+function drawEmptyFace(canvas, image) {
+  canvas.width = 256;
+  canvas.height = 256;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  if (!image) return;
+
+  const srcW = image.naturalWidth || image.width;
+  const srcH = image.naturalHeight || image.height;
+  const scale = Math.max(canvas.width / srcW, canvas.height / srcH);
+  const drawW = srcW * scale;
+  const drawH = srcH * scale;
+  ctx.drawImage(image, (canvas.width - drawW) / 2, (canvas.height - drawH) / 2, drawW, drawH);
 }
 
 /**

@@ -16,6 +16,7 @@ const COLOR_MODE_KEYS = { colorful: 'modeColorful', bw: 'modeBW', inverted: 'mod
 let singleFaceIdx = 0;
 let showSingle = false;
 let currentIcon = null;
+let emptyFaceImage = null;
 let materialMode = 'standard';
 let geneColor = 'purple';
 let numFaces = 6;
@@ -30,6 +31,7 @@ function getEncodeOptions() {
     independent: independentMode,
     errorLevel,
     geneColor,
+    emptyFaceImage,
   };
 }
 
@@ -117,6 +119,7 @@ document.querySelectorAll('.tab').forEach((tab) => {
 
 // --- Face count selector ---
 const faceCountSelect = document.getElementById('face-count');
+faceCountSelect.disabled = true;
 faceCountSelect.addEventListener('change', (e) => {
   numFaces = parseInt(e.target.value, 10);
 });
@@ -125,6 +128,15 @@ faceCountSelect.addEventListener('change', (e) => {
 const independentModeCheckbox = document.getElementById('independent-mode');
 independentModeCheckbox.addEventListener('change', (e) => {
   independentMode = e.target.checked;
+  faceCountSelect.disabled = !independentMode;
+  const emptyFaceButton = document.getElementById('btn-empty-face');
+  if (emptyFaceButton) {
+    emptyFaceButton.style.display = independentMode ? '' : 'none';
+  }
+  if (!independentMode) {
+    numFaces = 6;
+    faceCountSelect.value = '6';
+  }
 });
 
 // --- Error level selector ---
@@ -287,6 +299,8 @@ btnColorMode.addEventListener('click', async () => {
 // Icon upload
 const btnIcon = document.getElementById('btn-icon');
 const iconInput = document.getElementById('icon-input');
+const btnEmptyFace = document.getElementById('btn-empty-face');
+const emptyFaceInput = document.getElementById('empty-face-input');
 
 btnIcon.addEventListener('click', () => {
   iconInput.click();
@@ -309,6 +323,28 @@ iconInput.addEventListener('change', (e) => {
   };
   img.src = URL.createObjectURL(file);
   iconInput.value = '';
+});
+
+btnEmptyFace.addEventListener('click', () => {
+  emptyFaceInput.click();
+});
+
+emptyFaceInput.addEventListener('change', (e) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+
+  const img = new Image();
+  img.onload = () => {
+    emptyFaceImage = img;
+    btnEmptyFace.classList.add('active');
+
+    const input = document.getElementById('input-data').value.trim();
+    if (input && qrCanvases.length > 0 && independentMode) {
+      reencodeCurrent();
+    }
+  };
+  img.src = URL.createObjectURL(file);
+  emptyFaceInput.value = '';
 });
 
 async function reencodeWithIcon() {

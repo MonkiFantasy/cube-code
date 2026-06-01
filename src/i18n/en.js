@@ -35,6 +35,7 @@ export default {
   viewSingle: 'View Single',
   addIcon: 'Add Icon',
   removeIcon: 'Remove Icon',
+  emptyFaceImage: 'Empty Face Image',
   standardMaterial: 'Standard',
   glassMaterial: 'Glass',
   geneMaterial: 'Gene Material',
