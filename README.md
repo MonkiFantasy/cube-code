@@ -2,7 +2,7 @@
 
 > [English](./README.md) | [中文](./README.zh-CN.md)
 
-A 3D QR code system that encodes data across six faces of a cube, providing ~6x the data capacity of a standard QR code.
+A 3D QR code system that encodes data across six faces of a cube, providing ~6x the data capacity of a standard QR code. It also supports an independent ordinary-QR mode so any phone scanner can read a single face directly.
 
 ## Platforms
 
@@ -16,11 +16,13 @@ A 3D QR code system that encodes data across six faces of a cube, providing ~6x 
 
 ### Core
 
-- **QR Encoding/Decoding** — 6-face data splitting with L/M/Q/H error correction
+- **Cube Code Encoding/Decoding** — 6-face data splitting with L/M/Q/H error correction
 - **Cross Net View** — Standard cube unfolded layout
 - **Face-by-Face View** — Browse each face individually
-- **Variable Face Count** — Use 1–6 faces based on data size
-- **Independent Mode** — Each face can be decoded independently
+- **Multi-face Reassembly** — Normal mode uses all 6 faces and reconstructs data by face ID
+- **Independent Mode** — Each used face is an ordinary QR code readable by system cameras, WeChat, and other common scanners
+- **Independent Face Count** — Choose 1–6 QR faces only in independent mode
+- **Empty Face Image** — Upload a custom image for unused faces in independent mode
 
 ### 3D Rendering
 
@@ -29,7 +31,7 @@ A 3D QR code system that encodes data across six faces of a cube, providing ~6x 
 - **Multiple Color Modes** — Colorful / Black & White / Contrast / Contrast Colorful
 - **QR Center Icon** — Customizable icon in QR code center
 - **Glass Material** — Transparent acrylic effect
-- **Season Code** — Purple / Red / Blue cube-style modules
+- **Gene Material** — Purple / red / blue raised pixel-relief cube, fitted to the actual QR content bounds
 
 ### Mobile & Android
 
@@ -44,27 +46,20 @@ A 3D QR code system that encodes data across six faces of a cube, providing ~6x 
 
 - **Chinese / English** — Full i18n support
 
-## Protocol
+## Concept
 
-Each face's QR code payload:
+Traditional QR codes are 2D — data is encoded on a single plane. Cube Code distributes data across six cube faces:
+
+- In normal mode, each face contains a protocol-wrapped QR code carrying one data chunk
+- A **3-bit face ID** (`001`–`110`) identifies each face position
+- After all six faces are scanned, chunks are ordered by face ID and reassembled
+- In independent mode, each used face directly encodes the original text as an ordinary QR code, without Cube Code protocol wrapping
 
 ```
-[3-bit face ID] + [data chunk]
+        [3]
+  [5]  [1]  [6]  [2]
+        [4]
 ```
-
-After scanning all 6 faces and ordering by face ID, the full data is reconstructed:
-
-```
-[version][data type][content][CRC16]
-```
-
-| Field     | Size    | Description                               |
-|-----------|---------|-------------------------------------------|
-| Face ID   | 3 bits  | 001–110, identifies face position         |
-| Version   | 1 byte  | Protocol version                          |
-| Data type | 1 byte  | 0x00=text, 0x01=binary, 0x02=url         |
-| Content   | N bytes | The actual data, split across 6 faces     |
-| CRC16     | 2 bytes | Checksum of the complete reassembled data |
 
 ## Data Capacity
 
@@ -73,6 +68,31 @@ After scanning all 6 faces and ordering by face ID, the full data is reconstruct
 | Numeric      | 7,089 chars     | ~42,534 chars        |
 | Alphanumeric | 4,296 chars     | ~25,776 chars        |
 | Byte         | 2,953 bytes     | ~17,718 bytes        |
+
+## Protocol
+
+In normal Cube Code mode, each face's QR payload is:
+
+```
+[3-bit face ID][13-bit chunk length][data chunk]
+```
+
+After scanning all 6 faces and ordering by face ID, the full data is reconstructed as:
+
+```
+[version][data type][content][CRC16]
+```
+
+| Field        | Size    | Description                               |
+|--------------|---------|-------------------------------------------|
+| Face ID      | 3 bits  | `001`–`110`, identifies face position      |
+| Chunk length | 13 bits | Length of the current face chunk           |
+| Version      | 1 byte  | Protocol version                           |
+| Data type    | 1 byte  | `0x00`=text, `0x01`=binary, `0x02`=URL     |
+| Content      | N bytes | Actual data split across 6 faces           |
+| CRC16        | 2 bytes | Checksum of the complete reassembled data  |
+
+> Independent mode does not use this protocol wrapping; each used face is a plain QR code containing the original input text.
 
 ## Development
 
@@ -97,7 +117,7 @@ Camera access requires HTTPS — the dev server uses a self-signed certificate a
 ### Android Development
 
 ```bash
-npm run cap:sync        # Sync web assets to Android
+npm run cap:sync         # Sync web assets to Android
 npm run cap:open:android # Open in Android Studio
 ```
 
