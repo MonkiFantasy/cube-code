@@ -9,9 +9,9 @@ const FACE_TO_BOX = [4, 5, 2, 3, 0, 1];
 
 // Gene code colors (贪嗔痴)
 export const GENE_COLORS = [
-  { name: 'purple', color: '#8B5CF6', label: '贪' },  // 紫色 = 贪
-  { name: 'red', color: '#EF4444', label: '嗔' },      // 红色 = 嗔
-  { name: 'blue', color: '#3B82F6', label: '痴' },     // 蓝色 = 痴
+  { name: 'purple', color: '#7C2DFF', label: '贪' },  // 紫色 = 贪
+  { name: 'red', color: '#E7352A', label: '嗔' },     // 红色 = 嗔
+  { name: 'blue', color: '#14B8A6', label: '痴' },    // 蓝绿色 = 痴
 ];
 
 /**
@@ -28,7 +28,9 @@ export function createCube(container, qrCanvases, { materialMode = 'standard', g
   const height = container.clientWidth;
 
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0xf5f5f5);
+  scene.background = materialMode === 'gene'
+    ? new THREE.Color(0x05060c)
+    : new THREE.Color(0xf5f5f5);
 
   // Add environment map for glass/gene reflections
   let pmremGenerator = null;
@@ -48,7 +50,7 @@ export function createCube(container, qrCanvases, { materialMode = 'standard', g
   renderer.setPixelRatio(window.devicePixelRatio);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = materialMode === 'gene' ? 1.35 : 1.0;
+  renderer.toneMappingExposure = materialMode === 'gene' ? 1.65 : 1.0;
   container.appendChild(renderer.domElement);
 
   const controls = new OrbitControls(camera, renderer.domElement);
@@ -103,15 +105,18 @@ export function createCube(container, qrCanvases, { materialMode = 'standard', g
     }
   }
 
-  const ambient = new THREE.AmbientLight(0xffffff, materialMode === 'gene' ? 0.35 : 0.8);
+  const ambient = new THREE.AmbientLight(0xffffff, materialMode === 'gene' ? 0.22 : 0.8);
   scene.add(ambient);
-  const dirLight = new THREE.DirectionalLight(0xffffff, materialMode === 'gene' ? 0.75 : 0.5);
+  const dirLight = new THREE.DirectionalLight(0xffffff, materialMode === 'gene' ? 0.95 : 0.5);
   dirLight.position.set(5, 5, 5);
   scene.add(dirLight);
   if (materialMode === 'gene') {
-    const rimLight = new THREE.DirectionalLight(0x9bbcff, 1.2);
+    const rimLight = new THREE.DirectionalLight(0x9bbcff, 1.45);
     rimLight.position.set(-4, 3, -5);
     scene.add(rimLight);
+    const warmKeyLight = new THREE.DirectionalLight(0xffd1b8, 0.75);
+    warmKeyLight.position.set(3.5, -2, 4);
+    scene.add(warmKeyLight);
   }
 
   // Create main group
@@ -198,21 +203,22 @@ function createGeneCube(qrCanvases, geneColor) {
   const color = GENE_COLORS.find(c => c.name === geneColor)?.color || '#8B5CF6';
   const glowColor = new THREE.Color(color);
 
-  // Acrylic material - translucent with subtle reflections
+  // Gem/acrylic material inspired by the reference: saturated translucent
+  // color, strong inner glow, glossy highlights and low roughness.
   const moduleMaterial = new THREE.MeshPhysicalMaterial({
-    color: color,
+    color,
     emissive: glowColor,
-    emissiveIntensity: 0.32,
-    transmission: 0.38,
-    roughness: 0.075,
-    metalness: 0.0,
-    ior: 1.49,
-    thickness: 0.65,
-    envMapIntensity: 1.35,
+    emissiveIntensity: 0.46,
+    transmission: 0.5,
+    roughness: 0.045,
+    metalness: 0.02,
+    ior: 1.58,
+    thickness: 0.92,
+    envMapIntensity: 1.85,
     clearcoat: 1.0,
-    clearcoatRoughness: 0.05,
+    clearcoatRoughness: 0.025,
     transparent: true,
-    opacity: 0.98,
+    opacity: 0.94,
   });
 
   // Cube dimensions
@@ -243,14 +249,15 @@ function createGeneCube(qrCanvases, geneColor) {
   const baseMaterial = new THREE.MeshPhysicalMaterial({
     color,
     emissive: glowColor,
-    emissiveIntensity: 0.1,
-    roughness: 0.16,
-    transmission: 0.52,
-    thickness: 0.24,
+    emissiveIntensity: 0.16,
+    roughness: 0.08,
+    transmission: 0.62,
+    thickness: 0.34,
+    envMapIntensity: 1.45,
     clearcoat: 1,
-    clearcoatRoughness: 0.06,
+    clearcoatRoughness: 0.035,
     transparent: true,
-    opacity: 0.22,
+    opacity: 0.28,
     depthWrite: false,
   });
 
@@ -316,10 +323,10 @@ function createGeneCube(qrCanvases, geneColor) {
   // Add local internal lights for a premium acrylic/neon glow.
   // Keep the light concentrated inside the material instead of drawing a
   // visible full-ball halo around the cube.
-  const pointLight = new THREE.PointLight(color, 3.2, 3.0, 1.8);
+  const pointLight = new THREE.PointLight(color, 4.2, 3.4, 1.7);
   pointLight.position.set(0, 0, 0);
   group.add(pointLight);
-  const topLight = new THREE.PointLight(0xffffff, 0.9, 2.4, 2);
+  const topLight = new THREE.PointLight(0xffffff, 1.15, 2.8, 2);
   topLight.position.set(0.42, 0.55, 0.36);
   group.add(topLight);
   addGeneEnergyGlows(group, color);

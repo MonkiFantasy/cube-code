@@ -37,9 +37,10 @@ const FACE_COLORS_INVERTED_COLORFUL = [
 ];
 
 const GENE_QR_COLORS = {
-  purple: { dark: '#8B5CF6', light: '#ffffff' },
-  red: { dark: '#EF4444', light: '#ffffff' },
-  blue: { dark: '#3B82F6', light: '#ffffff' },
+  // 贪：深紫琉璃；嗔：朱红琥珀；痴：蓝绿色青玉
+  purple: { dark: '#7C2DFF', light: '#ffffff' },
+  red: { dark: '#E7352A', light: '#ffffff' },
+  blue: { dark: '#14B8A6', light: '#ffffff' },
 };
 
 /**
