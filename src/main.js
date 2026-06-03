@@ -1,5 +1,5 @@
 import { encodeToCubeCode } from './encoder.js';
-import { decodeCubeCode } from './decoder.js';
+import { DATA_TYPE_URL, decodeCubeCode } from './decoder.js';
 import { startScanner } from './scanner.js';
 import { createCube } from './cube3d.js';
 import { renderCrossNet, downloadCrossNet } from './crossnet.js';
@@ -143,6 +143,47 @@ function updateCapacityHint() {
 
   hint.classList.toggle('over', over);
   hint.textContent = `${over ? t('capacityOver') : t('capacityOk')}: ${byteLen} / ${maxBytes} bytes (${t('approx')} ${pct}%)`;
+}
+
+function renderDecodedOutput(output, decoded) {
+  output.textContent = '';
+
+  if (decoded?.dataType === DATA_TYPE_URL && isSafeDisplayUrl(decoded.data)) {
+    const link = document.createElement('a');
+    link.href = decoded.data;
+    link.textContent = decoded.data;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    output.appendChild(link);
+    return;
+  }
+
+  output.textContent = decoded?.data ?? '';
+}
+
+function renderPlainQrOutput(output, data) {
+  output.textContent = '';
+
+  if (isSafeDisplayUrl(data)) {
+    const link = document.createElement('a');
+    link.href = data;
+    link.textContent = data;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    output.appendChild(link);
+    return;
+  }
+
+  output.textContent = data;
+}
+
+function isSafeDisplayUrl(value) {
+  try {
+    const url = new URL(String(value || '').trim());
+    return ['http:', 'https:', 'mailto:', 'tel:'].includes(url.protocol);
+  } catch {
+    return false;
+  }
 }
 
 document.getElementById('lang-switch').addEventListener('click', () => {
@@ -544,7 +585,11 @@ fileInput.addEventListener('change', (e) => {
 
     if (plainScanMode) {
       const result = scanPlain(canvas);
-      output.textContent = result.found ? result.data : t('noFaces');
+      if (result.found) {
+        renderPlainQrOutput(output, result.data);
+      } else {
+        output.textContent = t('noFaces');
+      }
       fileInput.value = '';
       return;
     }
@@ -563,7 +608,7 @@ fileInput.addEventListener('change', (e) => {
       if (scannedPayloads.length >= numFaces) {
         const decoded = decodeCubeCode(scannedPayloads, numFaces);
         if (decoded.success) {
-          output.textContent = decoded.data;
+          renderDecodedOutput(output, decoded);
         }
       } else {
         output.textContent = '';
@@ -599,7 +644,7 @@ btnDecode.addEventListener('click', () => {
   const decoded = decodeCubeCode(scannedPayloads, numFaces);
 
   if (decoded.success) {
-    output.textContent = decoded.data;
+    renderDecodedOutput(output, decoded);
   } else if (decoded.missingFaces.length > 0) {
     output.textContent = `${t('missingFaces')}: ${decoded.missingFaces.join(', ')}`;
   } else {
@@ -621,7 +666,7 @@ async function startCamera(quick = false) {
   try {
     scanner = startScanner(video, canvas, (_payloadBytes, faceId) => {
       if (plainScanMode) {
-        document.getElementById('decoded-output').textContent = _payloadBytes;
+        renderPlainQrOutput(document.getElementById('decoded-output'), _payloadBytes);
         return;
       }
 
@@ -634,7 +679,7 @@ async function startCamera(quick = false) {
         if (scannedPayloads.length >= numFaces) {
           const decoded = decodeCubeCode(scannedPayloads, numFaces);
           if (decoded.success) {
-            document.getElementById('decoded-output').textContent = decoded.data;
+            renderDecodedOutput(document.getElementById('decoded-output'), decoded);
           }
         }
       }

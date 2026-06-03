@@ -1,13 +1,14 @@
 import { describe, it, expect } from 'vitest';
 import { decodeCubeCode } from '../src/decoder.js';
+import { DATA_TYPE_URL, detectDataType } from '../src/encoder.js';
 import { splitData, buildFacePayload, crc16 } from '../src/utils.js';
 
-function buildProtocolPayload(text, numFaces = 6) {
+function buildProtocolPayload(text, numFaces = 6, dataType = 0x00) {
   const content = new TextEncoder().encode(text);
   const crc = crc16(content);
   const fullPayload = new Uint8Array(2 + content.length + 2);
   fullPayload[0] = 1; // version
-  fullPayload[1] = 0x00; // text
+  fullPayload[1] = dataType;
   fullPayload.set(content, 2);
   fullPayload[fullPayload.length - 2] = crc >> 8;
   fullPayload[fullPayload.length - 1] = crc & 0xFF;
@@ -56,5 +57,27 @@ describe('decodeCubeCode protocol round-trip', () => {
     const decoded = decodeCubeCode(payloads, 6);
     expect(decoded.success).toBe(true);
     expect(decoded.data).toBe(text);
+  });
+
+  it('preserves URL data type for supported URLs', () => {
+    const url = 'https://example.com/cube-code?x=1';
+    const payloads = buildProtocolPayload(url, 6, DATA_TYPE_URL);
+    const decoded = decodeCubeCode(payloads, 6);
+
+    expect(decoded.success).toBe(true);
+    expect(decoded.data).toBe(url);
+    expect(decoded.dataType).toBe(DATA_TYPE_URL);
+  });
+});
+
+describe('detectDataType', () => {
+  it('detects supported URL schemes', () => {
+    expect(detectDataType('https://example.com')).toBe(DATA_TYPE_URL);
+    expect(detectDataType('mailto:test@example.com')).toBe(DATA_TYPE_URL);
+    expect(detectDataType('tel:+1234567890')).toBe(DATA_TYPE_URL);
+  });
+
+  it('keeps ordinary text as text', () => {
+    expect(detectDataType('example.com without scheme')).toBe(0x00);
   });
 });
