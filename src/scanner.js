@@ -6,7 +6,8 @@ import { base64ToBytes } from './encoder-utils.js';
  * @param {HTMLVideoElement} videoEl
  * @param {HTMLCanvasElement} canvasEl
  * @param {function} onScan - called with (payloadBytes, faceId) for each new face
- * @param {object} opts - { quick: boolean } quick mode scans full frame for single QR
+ * @param {object} opts - { quick: boolean, plain: boolean }
+ *   quick mode scans extra regions; plain mode returns ordinary QR text.
  * @returns {{ stop, reset }}
  */
 export function startScanner(videoEl, canvasEl, onScan, opts = {}) {
@@ -51,6 +52,10 @@ export function startScanner(videoEl, canvasEl, onScan, opts = {}) {
     const code = jsQR(imageData.data, w, h);
     if (code && code.data && !seen.has(code.data)) {
       seen.add(code.data);
+      if (opts.plain) {
+        onScan(code.data, null);
+        return;
+      }
       const result = decodePayload(code.data);
       if (result) {
         onScan(result.bytes, result.faceId);
@@ -73,6 +78,10 @@ export function startScanner(videoEl, canvasEl, onScan, opts = {}) {
         const code = jsQR(regionData.data, cellW, cellH);
         if (code && code.data && !seen.has(code.data)) {
           seen.add(code.data);
+          if (opts.plain) {
+            onScan(code.data, null);
+            continue;
+          }
           const result = decodePayload(code.data);
           if (result) {
             onScan(result.bytes, result.faceId);

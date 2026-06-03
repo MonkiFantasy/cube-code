@@ -10,7 +10,6 @@
 |------|------|------|
 | Web (PWA) | ✅ 已支持 | [在线体验](https://monkifantasy.github.io/cube-code/) |
 | Android | ✅ 已支持 | [Releases](https://github.com/MonkiFantasy/cube-code/releases) |
-| iOS | ❌ 计划中 | — |
 
 ## 功能
 
@@ -39,8 +38,8 @@
 - **PWA 可安装** — 添加到主屏幕，类原生体验
 - **Android APK** — GitHub Actions CI/CD 自动构建
 - **原生保存图片** — 长按保存 QR 图片到相册
-- **摄像头扫描** — 实时 QR 扫描解码
-- **上传图片解码** — 从相册选择图片解码
+- **摄像头扫描** — 实时魔方码扫描，也支持普通二维码扫描
+- **上传图片解码** — 从相册选择魔方码十字图或普通二维码图片解码
 
 ### 国际化
 

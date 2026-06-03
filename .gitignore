@@ -11,3 +11,4 @@ android/capacitor-cordova-android-plugins/build/
 .certs/
 release.keystore
 .config/
+dev-dist/

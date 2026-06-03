@@ -84,6 +84,37 @@ textarea {
   resize: vertical;
 }
 
+.capacity-hint {
+  margin-top: 0.35rem;
+  font-size: 0.78rem;
+  color: #666;
+  text-align: right;
+}
+
+.capacity-hint.over {
+  color: #c62828;
+  font-weight: 700;
+}
+
+.encode-options {
+  margin-top: 0.5rem;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  background: #fff;
+  padding: 0.45rem 0.6rem;
+}
+
+.encode-options summary {
+  cursor: pointer;
+  color: #555;
+  font-size: 0.86rem;
+  user-select: none;
+}
+
+.encode-options[open] summary {
+  margin-bottom: 0.35rem;
+}
+
 button#btn-encode,
 button#btn-decode {
   display: block;
@@ -328,6 +359,35 @@ button#btn-decode:hover {
   background: #333;
   color: #fff;
   border-color: #333;
+}
+
+.toolbar-more {
+  flex: 1 1 100%;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  background: #fff;
+  padding: 0.45rem 0.6rem;
+}
+
+.toolbar-more summary {
+  cursor: pointer;
+  color: #555;
+  font-size: 0.82rem;
+  user-select: none;
+}
+
+.toolbar-more[open] {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.toolbar-more[open] summary {
+  flex: 1 1 100%;
+}
+
+.toolbar-more button {
+  flex: 1 1 calc(50% - 0.5rem);
 }
 
 /* Cross net layout */

@@ -77,6 +77,20 @@ export function scanSingle(source) {
 }
 
 /**
+ * Scan a plain/ordinary QR code and return its raw text content.
+ */
+export function scanPlain(source) {
+  const { imageData, width, height } = getImageData(source);
+  const code = jsQR(imageData.data, width, height);
+
+  if (code && code.data) {
+    return { found: true, data: code.data };
+  }
+
+  return { found: false, data: null };
+}
+
+/**
  * Scan from camera video frame — crops and scans the cross net area.
  */
 export function scanVideoFrame(videoEl, canvasEl, overlayRect) {

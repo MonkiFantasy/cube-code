@@ -10,7 +10,6 @@ A 3D QR code system that encodes data across six faces of a cube, providing ~6x 
 |----------|--------|----------|
 | Web (PWA) | ✅ Supported | [Live Demo](https://monkifantasy.github.io/cube-code/) |
 | Android | ✅ Supported | [Releases](https://github.com/MonkiFantasy/cube-code/releases) |
-| iOS | ❌ Planned | — |
 
 ## Features
 
@@ -39,8 +38,8 @@ A 3D QR code system that encodes data across six faces of a cube, providing ~6x 
 - **PWA Installable** — Add to home screen on any device
 - **Android APK** — Auto-built via GitHub Actions CI/CD
 - **Native Image Save** — Long-press to save QR images to gallery
-- **Camera Scan** — Real-time QR scanning from camera
-- **Image Upload** — Decode QR from gallery photos
+- **Camera Scan** — Real-time Cube Code scanning and plain QR scanning from camera
+- **Image Upload** — Decode Cube Code cross nets or plain QR from gallery photos
 
 ### Internationalization
 
