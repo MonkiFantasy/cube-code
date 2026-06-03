@@ -12,6 +12,14 @@
   <link rel="stylesheet" href="/src/style.css">
 </head>
 <body>
+  <div id="offline-banner" class="offline-banner" hidden>
+    <div class="offline-orb" aria-hidden="true">🧊</div>
+    <div>
+      <strong>离线魔方模式</strong>
+      <span>网络断开了，已缓存的功能仍可继续使用。</span>
+    </div>
+    <button id="offline-retry" type="button">重试</button>
+  </div>
   <header>
     <h1 id="title">魔方码</h1>
     <p class="subtitle" id="subtitle">3D 二维码 — 6 倍数据容量</p>

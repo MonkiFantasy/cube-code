@@ -53,6 +53,8 @@
 - Vite PWA 插件已接入，替代手写 `public/sw.js`。
 - PWA manifest 由 `vite-plugin-pwa` 生成。
 - Workbox generateSW。
+- PWA 离线 fallback 页面：`public/offline.html`。
+- 应用内离线提示条：断网时显示“离线魔方模式”。
 - Android Capacitor 项目存在。
 - Android 长按 data URL 图片保存到相册。
 - GitHub Actions 有 CI、Android debug/release 构建。
@@ -87,7 +89,7 @@
 
 - 已接入自动 SW，但还没有 UI 更新提示。
 - 未实现“发现新版本，点击刷新”。
-- 未实现离线兜底页。
+- 离线兜底页已实现；仍可继续优化缓存清理和更新提示体验。
 
 ### 测试
 

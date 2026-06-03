@@ -198,8 +198,26 @@ document.getElementById('lang-switch').addEventListener('click', () => {
 
 applyLang();
 updateCapacityHint();
+updateOfflineUi();
 
 document.getElementById('input-data').addEventListener('input', updateCapacityHint);
+
+window.addEventListener('online', updateOfflineUi);
+window.addEventListener('offline', updateOfflineUi);
+document.getElementById('offline-retry')?.addEventListener('click', () => {
+  if (navigator.onLine) {
+    window.location.reload();
+  } else {
+    updateOfflineUi();
+  }
+});
+
+function updateOfflineUi() {
+  const banner = document.getElementById('offline-banner');
+  if (banner) {
+    banner.hidden = navigator.onLine;
+  }
+}
 
 // --- Tab switching ---
 document.querySelectorAll('.tab').forEach((tab) => {
