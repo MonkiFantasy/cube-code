@@ -1103,3 +1103,145 @@ button#btn-decode:hover,
 .net-layout-selector select {
   flex: 1;
 }
+
+/* Decode mode simplification */
+.decode-mode-switch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.28rem;
+  padding: 0.28rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: rgba(241, 245, 249, 0.86);
+  margin-bottom: 0.45rem;
+}
+
+.decode-mode-switch button {
+  border: 0;
+  border-radius: 999px;
+  padding: 0.62rem 0.8rem;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-weight: 900;
+  transition: transform 0.15s ease, background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.decode-mode-switch button:hover {
+  background: rgba(255,255,255,0.8);
+}
+
+.decode-mode-switch button.active {
+  color: #fff;
+  background: linear-gradient(135deg, var(--primary-dark), var(--primary-2));
+  box-shadow: 0 10px 24px rgba(79,70,229,0.24);
+}
+
+.mode-hint {
+  margin: 0 0 0.65rem;
+  color: var(--muted);
+  font-size: 0.86rem;
+  text-align: center;
+}
+
+.decode-actions {
+  margin-top: 0;
+  margin-bottom: 0.8rem !important;
+}
+
+.decode-actions button[hidden],
+#btn-decode[hidden],
+#btn-reset[hidden],
+#scan-status[hidden] {
+  display: none !important;
+}
+
+.decoded-card {
+  position: relative;
+}
+
+.copy-output {
+  margin-top: 0.5rem;
+  padding: 0.48rem 0.8rem;
+  border: 0;
+  border-radius: 999px;
+  color: #fff;
+  cursor: pointer;
+  font-weight: 800;
+  background: linear-gradient(135deg, var(--primary), var(--primary-2));
+  box-shadow: 0 10px 22px rgba(79,70,229,0.2);
+}
+
+.copy-output[hidden] {
+  display: none;
+}
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 1.1rem;
+  z-index: 1200;
+  max-width: min(92vw, 420px);
+  transform: translateX(-50%);
+  padding: 0.7rem 0.95rem;
+  border-radius: 999px;
+  color: #fff;
+  background: rgba(15, 23, 42, 0.92);
+  box-shadow: 0 16px 40px rgba(15,23,42,0.24);
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
+.toast.success {
+  background: linear-gradient(135deg, #16a34a, #06b6d4);
+}
+
+.toast.error {
+  background: linear-gradient(135deg, #dc2626, #f97316);
+}
+
+.toast[hidden] {
+  display: none;
+}
+
+@media (max-width: 480px) {
+  header {
+    margin-bottom: 0.7rem;
+  }
+
+  header h1 {
+    font-size: 1.7rem;
+  }
+
+  .subtitle {
+    display: none;
+  }
+
+  main {
+    padding: 0.62rem;
+    border-radius: 20px;
+  }
+
+  textarea {
+    min-height: 82px;
+  }
+
+  .mode-hint,
+  .quickscan-hint,
+  .capacity-hint {
+    font-size: 0.75rem;
+  }
+
+  .decode-mode-switch button {
+    padding: 0.5rem 0.55rem;
+    font-size: 0.8rem;
+  }
+
+  #scan-status {
+    margin-top: 0.45rem;
+  }
+
+  .decoded-card #decoded-output {
+    margin-top: 0.5rem;
+  }
+}

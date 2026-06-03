@@ -27,6 +27,7 @@ let netLayout = 'classic';
 let numFaces = 6;
 let independentMode = false;
 let errorLevel = 'M';
+let decodedCopyText = '';
 
 // QR Code version 40 byte-mode capacities. The qrcode library chooses the
 // smallest version automatically up to V40; these values give a practical upper
@@ -92,18 +93,20 @@ function applyLang() {
   document.getElementById('input-data').placeholder = t('inputPlaceholder');
   document.getElementById('btn-encode').textContent = t('btnEncode');
   document.getElementById('btn-decode').textContent = t('btnDecode');
+  document.getElementById('decode-mode-hint').textContent = plainScanMode ? t('plainModeHint') : t('cubeModeHint');
   document.getElementById('scan-label').textContent = t('scanned');
   document.getElementById('rotate-hint').textContent = t('rotateHint');
   document.getElementById('lang-switch').textContent = t('langSwitch');
   document.getElementById('btn-cross').textContent = showCross ? t('viewGrid') : t('viewCross');
   document.getElementById('btn-scan-mode').textContent = quickScanMode ? t('cameraMode') : t('quickScan');
-  document.getElementById('btn-plain-mode').textContent = plainScanMode ? t('cubeQrScan') : t('plainQrScan');
-  document.getElementById('quickscan-hint').textContent = t('quickScanHint');
+  document.getElementById('btn-cube-mode').textContent = t('cubeQrScan');
+  document.getElementById('btn-plain-mode').textContent = t('plainQrScan');
+  document.getElementById('quickscan-hint').textContent = plainScanMode ? t('plainModeHint') : t('quickScanHint');
   document.getElementById('btn-color-mode').textContent = t(COLOR_MODE_KEYS[colorMode]);
   document.getElementById('btn-single').textContent = t('viewSingle');
   document.getElementById('btn-icon').textContent = currentIcon ? t('removeIcon') : t('addIcon');
   document.getElementById('btn-material').textContent = t(MATERIAL_MODE_KEYS[materialMode]);
-  const dynamicIds = new Set(['btn-cross', 'btn-scan-mode', 'btn-plain-mode', 'btn-color-mode', 'btn-single', 'btn-icon', 'btn-material']);
+  const dynamicIds = new Set(['btn-cross', 'btn-scan-mode', 'btn-cube-mode', 'btn-plain-mode', 'btn-color-mode', 'btn-single', 'btn-icon', 'btn-material']);
   document.querySelectorAll('[data-i18n]').forEach((el) => {
     const key = el.dataset.i18n;
     if (key && !dynamicIds.has(el.id)) {
@@ -147,18 +150,60 @@ function updateCapacityHint() {
   hint.textContent = `${over ? t('capacityOver') : t('capacityOk')}: ${byteLen} / ${maxBytes} bytes (${t('approx')} ${pct}%)`;
 }
 
-function renderDecodedOutput(output, decoded) {
+function setDecodedText(value = '') {
+  const output = document.getElementById('decoded-output');
+  decodedCopyText = String(value || '');
+  output.textContent = decodedCopyText;
+  updateCopyButton();
+}
+
+function clearDecodedOutput() {
+  const output = document.getElementById('decoded-output');
+  decodedCopyText = '';
   output.textContent = '';
+  updateCopyButton();
+}
+
+function getDecodedPlainText() {
+  return decodedCopyText.trim();
+}
+
+function updateCopyButton() {
+  const copyButton = document.getElementById('btn-copy-output');
+  if (!copyButton) return;
+  copyButton.hidden = !getDecodedPlainText();
+}
+
+let toastTimer = null;
+function showToast(message, type = 'info') {
+  const toast = document.getElementById('toast');
+  if (!toast) return;
+  toast.textContent = message;
+  toast.className = `toast ${type}`;
+  toast.hidden = false;
+  window.clearTimeout(toastTimer);
+  toastTimer = window.setTimeout(() => {
+    toast.hidden = true;
+  }, 2200);
+}
+
+function renderDecodedOutput(output, decoded) {
+  decodedCopyText = '';
+  output.textContent = '';
+  updateCopyButton();
 
   if (decoded?.dataType === DATA_TYPE_URL && isSafeUrlOrDeepLink(decoded.data)) {
     renderUrlOrDeepLink(output, decoded.data);
     return;
   }
 
-  output.textContent = decoded?.data ?? '';
+  decodedCopyText = decoded?.data ?? '';
+  output.textContent = decodedCopyText;
+  updateCopyButton();
 }
 
 function renderPlainQrOutput(output, data) {
+  decodedCopyText = '';
   output.textContent = '';
 
   if (isSafeUrlOrDeepLink(data)) {
@@ -166,11 +211,14 @@ function renderPlainQrOutput(output, data) {
     return;
   }
 
-  output.textContent = data;
+  decodedCopyText = String(data || '');
+  output.textContent = decodedCopyText;
+  updateCopyButton();
 }
 
 function renderUrlOrDeepLink(output, value) {
   const url = String(value || '').trim();
+  decodedCopyText = url;
   const wrap = document.createElement('div');
   wrap.className = 'decoded-url';
 
@@ -190,6 +238,7 @@ function renderUrlOrDeepLink(output, value) {
   wrap.appendChild(link);
   wrap.appendChild(button);
   output.appendChild(wrap);
+  updateCopyButton();
 }
 
 document.getElementById('lang-switch').addEventListener('click', () => {
@@ -577,6 +626,7 @@ for (let i = 1; i <= 6; i++) {
 }
 
 const btnDecode = document.getElementById('btn-decode');
+const btnCubeMode = document.getElementById('btn-cube-mode');
 const btnScanMode = document.getElementById('btn-scan-mode');
 const btnPlainMode = document.getElementById('btn-plain-mode');
 const btnUpload = document.getElementById('btn-upload');
@@ -584,19 +634,44 @@ const fileInput = document.getElementById('file-input');
 const decodeSection = document.getElementById('decode');
 const quickscanOverlay = document.getElementById('quickscan-overlay');
 const quickscanHint = document.getElementById('quickscan-hint');
+const scanStatus = document.getElementById('scan-status');
+const copyOutputButton = document.getElementById('btn-copy-output');
+const btnReset = document.getElementById('btn-reset');
+
+function setPlainScanMode(enabled) {
+  plainScanMode = enabled;
+  if (plainScanMode) {
+    quickScanMode = false;
+  }
+  updateDecodeModeUi();
+  clearDecodedOutput();
+  if (scanner) { scanner.stop(); scanner = null; }
+  startCamera(quickScanMode);
+}
+
+function updateDecodeModeUi() {
+  btnCubeMode.classList.toggle('active', !plainScanMode);
+  btnPlainMode.classList.toggle('active', plainScanMode);
+  btnScanMode.textContent = quickScanMode ? t('cameraMode') : t('quickScan');
+  btnScanMode.classList.toggle('active', quickScanMode);
+  btnScanMode.hidden = plainScanMode;
+  btnDecode.hidden = plainScanMode;
+  btnReset.hidden = plainScanMode;
+  scanStatus.hidden = plainScanMode;
+  quickscanOverlay.style.display = quickScanMode && !plainScanMode ? 'block' : 'none';
+  quickscanHint.style.display = quickScanMode || plainScanMode ? 'block' : 'none';
+  quickscanHint.textContent = plainScanMode ? t('plainModeHint') : t('quickScanHint');
+  document.getElementById('decode-mode-hint').textContent = plainScanMode ? t('plainModeHint') : t('cubeModeHint');
+}
+
+btnCubeMode.addEventListener('click', () => {
+  if (plainScanMode) setPlainScanMode(false);
+});
 
 // Quick scan mode toggle
 btnScanMode.addEventListener('click', () => {
-  if (plainScanMode) {
-    plainScanMode = false;
-    btnPlainMode.textContent = t('plainQrScan');
-    btnPlainMode.classList.remove('active');
-  }
   quickScanMode = !quickScanMode;
-  btnScanMode.textContent = quickScanMode ? t('cameraMode') : t('quickScan');
-  btnScanMode.classList.toggle('active', quickScanMode);
-  quickscanOverlay.style.display = quickScanMode ? 'block' : 'none';
-  quickscanHint.style.display = quickScanMode ? 'block' : 'none';
+  updateDecodeModeUi();
 
   // Restart scanner with new mode
   if (scanner) { scanner.stop(); scanner = null; }
@@ -605,22 +680,21 @@ btnScanMode.addEventListener('click', () => {
 
 // Plain QR mode: scan ordinary QR codes and display raw text directly.
 btnPlainMode.addEventListener('click', () => {
-  plainScanMode = !plainScanMode;
-  btnPlainMode.textContent = plainScanMode ? t('cubeQrScan') : t('plainQrScan');
-  btnPlainMode.classList.toggle('active', plainScanMode);
-
-  if (plainScanMode) {
-    quickScanMode = false;
-    btnScanMode.textContent = t('quickScan');
-    btnScanMode.classList.remove('active');
-    quickscanOverlay.style.display = 'none';
-    quickscanHint.style.display = 'none';
-    document.getElementById('decoded-output').textContent = '';
-  }
-
-  if (scanner) { scanner.stop(); scanner = null; }
-  startCamera(quickScanMode);
+  if (!plainScanMode) setPlainScanMode(true);
 });
+
+copyOutputButton.addEventListener('click', async () => {
+  const text = getDecodedPlainText();
+  if (!text) return;
+  try {
+    await navigator.clipboard.writeText(text);
+    showToast(t('copied'), 'success');
+  } catch {
+    showToast(t('copyFailed'), 'error');
+  }
+});
+
+updateDecodeModeUi();
 
 // Upload image for scanning
 btnUpload.addEventListener('click', () => fileInput.click());
@@ -644,7 +718,7 @@ fileInput.addEventListener('change', (e) => {
       if (result.found) {
         renderPlainQrOutput(output, result.data);
       } else {
-        output.textContent = t('noFaces');
+        setDecodedText(t('plainQrNotFound'));
       }
       fileInput.value = '';
       return;
@@ -667,10 +741,10 @@ fileInput.addEventListener('change', (e) => {
           renderDecodedOutput(output, decoded);
         }
       } else {
-        output.textContent = '';
+        clearDecodedOutput();
       }
     } else {
-      output.textContent = t('noFaces');
+      setDecodedText(t('noFaces'));
     }
 
     fileInput.value = '';
@@ -679,12 +753,10 @@ fileInput.addEventListener('change', (e) => {
 });
 
 // Decode button
-const btnReset = document.getElementById('btn-reset');
-
 btnReset.addEventListener('click', () => {
   scannedPayloads.length = 0;
-  document.getElementById('scan-count').textContent = '0';
-  document.getElementById('decoded-output').textContent = '';
+  document.getElementById('scan-count').textContent = `0 / ${numFaces}`;
+  clearDecodedOutput();
   document.querySelectorAll('.face-dot').forEach((d) => d.classList.remove('scanned'));
   if (scanner) { scanner.reset(); }
 });
@@ -693,7 +765,7 @@ btnDecode.addEventListener('click', () => {
   const output = document.getElementById('decoded-output');
 
   if (scannedPayloads.length === 0) {
-    output.textContent = t('noFaces');
+    setDecodedText(t('noFaces'));
     return;
   }
 
@@ -702,9 +774,9 @@ btnDecode.addEventListener('click', () => {
   if (decoded.success) {
     renderDecodedOutput(output, decoded);
   } else if (decoded.missingFaces.length > 0) {
-    output.textContent = `${t('missingFaces')}: ${decoded.missingFaces.join(', ')}`;
+    setDecodedText(`${t('missingFaces')}: ${decoded.missingFaces.join(', ')}`);
   } else {
-    output.textContent = `${t('error')}: ${decoded.error}`;
+    setDecodedText(`${t('error')}: ${decoded.error}`);
   }
 });
 
@@ -741,7 +813,7 @@ async function startCamera(quick = false) {
       }
     }, { quick, plain: plainScanMode });
   } catch (err) {
-    document.getElementById('scan-status').textContent = `${t('cameraError')}: ${err.message}`;
+    showToast(`${t('cameraError')}: ${err.message}`, 'error');
   }
 }
 
