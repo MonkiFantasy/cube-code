@@ -23,6 +23,7 @@ let currentIcon = null;
 let emptyFaceImage = null;
 let materialMode = 'standard';
 let geneColor = 'purple';
+let netLayout = 'classic';
 let numFaces = 6;
 let independentMode = false;
 let errorLevel = 'M';
@@ -72,7 +73,7 @@ async function reencodeCurrent() {
     renderSingleFace();
   }
   if (showCross) {
-    renderCrossNet(crossContainer, qrCanvases, { mode: getEncodeOptions().mode });
+    renderCrossNet(crossContainer, qrCanvases, { mode: getEncodeOptions().mode, layout: netLayout });
   }
   if (cubeContainer.style.display !== 'none') {
     const cubeEl = document.getElementById('cube-3d');
@@ -336,7 +337,7 @@ btnEncode.addEventListener('click', async () => {
 
     if (showCross) {
       crossContainer.style.display = 'block';
-      renderCrossNet(crossContainer, qrCanvases, { mode: getEncodeOptions().mode });
+      renderCrossNet(crossContainer, qrCanvases, { mode: getEncodeOptions().mode, layout: netLayout });
     } else {
       cubeContainer.style.display = 'block';
       const cubeEl = document.getElementById('cube-3d');
@@ -410,7 +411,7 @@ btnCross.addEventListener('click', () => {
     if (cube3d) { cube3d.dispose(); cube3d = null; }
     cubeContainer.style.display = 'none';
     crossContainer.style.display = 'block';
-    renderCrossNet(crossContainer, qrCanvases, { mode: getEncodeOptions().mode });
+    renderCrossNet(crossContainer, qrCanvases, { mode: getEncodeOptions().mode, layout: netLayout });
   } else {
     crossContainer.style.display = 'none';
     cubeContainer.style.display = 'block';
@@ -422,6 +423,14 @@ btnCross.addEventListener('click', () => {
 
 // Color mode toggle
 const btnColorMode = document.getElementById('btn-color-mode');
+const netLayoutSelect = document.getElementById('net-layout');
+netLayoutSelect.addEventListener('change', () => {
+  netLayout = netLayoutSelect.value;
+  if (showCross && qrCanvases.length > 0) {
+    renderCrossNet(crossContainer, qrCanvases, { mode: getEncodeOptions().mode, layout: netLayout });
+  }
+});
+
 btnColorMode.addEventListener('click', async () => {
   const idx = COLOR_MODES.indexOf(colorMode);
   colorMode = COLOR_MODES[(idx + 1) % COLOR_MODES.length];
@@ -551,7 +560,7 @@ if (geneColorPicker) {
 // Save cross net as image
 btnSave.addEventListener('click', () => {
   if (qrCanvases.length === 0) return;
-  downloadCrossNet(qrCanvases, getEncodeOptions().mode);
+  downloadCrossNet(qrCanvases, getEncodeOptions().mode, netLayout);
 });
 
 // --- Decode ---

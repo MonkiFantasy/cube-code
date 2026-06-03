@@ -16,7 +16,7 @@ A 3D QR code system that encodes data across six faces of a cube, providing ~6x 
 ### Core
 
 - **Cube Code Encoding/Decoding** — 6-face data splitting with L/M/Q/H error correction; URL/deep-link inputs are tagged and decoded as clickable links or app-launch links
-- **Cross Net View** — Standard cube unfolded layout
+- **Cross Net View** — Standard and playful flat layouts: classic cross, windmill, stair, snake, and tower
 - **Face-by-Face View** — Browse each face individually
 - **Multi-face Reassembly** — Normal mode uses all 6 faces and reconstructs data by face ID
 - **Independent Mode** — Each used face is an ordinary QR code readable by system cameras, WeChat, and other common scanners
@@ -39,7 +39,7 @@ A 3D QR code system that encodes data across six faces of a cube, providing ~6x 
 - **Android APK** — Auto-built via GitHub Actions CI/CD
 - **Native Image Save** — Long-press to save QR images to gallery
 - **Camera Scan** — Real-time Cube Code scanning and plain QR scanning from camera
-- **Image Upload** — Decode Cube Code cross nets or plain QR from gallery photos
+- **Image Upload** — Decode known Cube Code flat layouts automatically, or plain QR from gallery photos
 
 ### Internationalization
 

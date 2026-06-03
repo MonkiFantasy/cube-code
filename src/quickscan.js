@@ -1,4 +1,5 @@
 import jsQR from 'jsqr';
+import { getNetLayout, getNetLayoutNames } from './crossnet.js';
 
 function getImageData(source) {
   if (source instanceof HTMLCanvasElement) {
@@ -12,28 +13,36 @@ function getImageData(source) {
  * Scan a cross net image for all 6 QR codes.
  * Divides the image into 6 regions based on the cross layout and scans each.
  */
-export function scanCrossNet(source) {
+export function scanCrossNet(source, { layout = 'auto' } = {}) {
   const { imageData, width, height } = getImageData(source);
+
+  if (layout !== 'auto') {
+    return scanKnownNetLayout(imageData, width, height, layout);
+  }
+
+  let best = { found: 0, payloads: new Map(), layout: 'classic' };
+  for (const layoutName of getNetLayoutNames()) {
+    const result = scanKnownNetLayout(imageData, width, height, layoutName);
+    if (result.found > best.found) {
+      best = result;
+    }
+    if (best.found === 6) break;
+  }
+
+  return best;
+}
+
+function scanKnownNetLayout(imageData, width, height, layoutName) {
   const payloads = new Map();
+  const net = getNetLayout(layoutName);
+  const cellW = width / net.cols;
+  const cellH = height / net.rows;
 
-  const regions = [
-    { row: 0, col: 1 },
-    { row: 1, col: 0 },
-    { row: 1, col: 1 },
-    { row: 1, col: 2 },
-    { row: 1, col: 3 },
-    { row: 2, col: 1 },
-  ];
-
-  const cellW = width / 4;
-  const cellH = height / 3;
-
-  for (const { row, col } of regions) {
+  for (const { row, col } of net.cells) {
     const x = Math.floor(col * cellW);
     const y = Math.floor(row * cellH);
     const w = Math.floor(cellW);
     const h = Math.floor(cellH);
-
     const regionData = extractRegion(imageData, x, y, w, h);
     const code = jsQR(regionData.data, w, h);
 
@@ -50,7 +59,7 @@ export function scanCrossNet(source) {
     }
   }
 
-  return { found: payloads.size, payloads };
+  return { found: payloads.size, payloads, layout: layoutName };
 }
 
 /**

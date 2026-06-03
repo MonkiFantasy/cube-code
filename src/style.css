@@ -1085,3 +1085,21 @@ button#btn-decode:hover,
   0%, 100% { transform: translateY(0) rotate(-4deg); }
   50% { transform: translateY(-4px) rotate(4deg); }
 }
+
+.net-layout-selector {
+  flex: 1 1 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.35rem 0.55rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: rgba(248,250,252,0.82);
+  color: var(--primary-dark);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.net-layout-selector select {
+  flex: 1;
+}
