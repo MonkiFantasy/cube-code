@@ -104,8 +104,9 @@
 
 ### 性能
 
-- 构建仍提示 JS chunk > 500kB。
-- 未做 Three.js / scanner 动态加载。
+- 已做首屏拆包：`qrcode`、`jsQR`、Three.js 改为按需加载。
+- 首屏主入口构建后约 27 kB；Three.js core 约 520 kB，仅打开 3D 视图时加载。
+- 还未替换/进一步瘦身 Three.js。
 
 ## 重要命令
 

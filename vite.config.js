@@ -68,6 +68,24 @@ export default defineConfig({
       },
     }),
   ],
+  build: {
+    // After lazy loading, the only >500 kB file is the optional Three.js core
+    // chunk loaded when users open 3D view. Keep warnings focused on chunks
+    // that exceed that known vendor cost.
+    chunkSizeWarningLimit: 600,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('/node_modules/three/')) {
+            if (id.includes('/examples/jsm/')) return 'three-addons';
+            return 'three-core';
+          }
+          if (id.includes('/node_modules/jsqr/')) return 'jsQR';
+          if (id.includes('/node_modules/qrcode/')) return 'qrcode';
+        },
+      },
+    },
+  },
   server: {
     host: '0.0.0.0',
     https: httpsConfig,

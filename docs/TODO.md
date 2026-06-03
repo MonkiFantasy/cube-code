@@ -223,20 +223,21 @@
 
 ### 11. 包体积优化
 
-当前状态：构建成功，但仍有大 chunk warning。
+当前状态：已完成一轮拆包。
 
-当前 warning：
+已完成：
 
-```text
-Some chunks are larger than 500 kB
-```
+- 首屏主入口从约 737 kB 降到约 27 kB。
+- `qrcode` 点击生成时按需加载。
+- `jsQR` 进入扫码/上传识别时按需加载。
+- Three.js 打开 3D 视图时按需加载。
+- vendor chunk 已拆分为 `qrcode`、`jsQR`、`three-core`、`three-addons` 等。
 
-需要优化：
+还可继续优化：
 
-- Three.js 动态加载。
-- 解码/扫描模块动态加载。
-- vendor chunk 拆分。
-- 路由级或 tab 级懒加载。
+- Three.js core 仍约 520 kB；可考虑替换为轻量 3D/CSS 方案。
+- PWA 可考虑不预缓存大型懒加载 chunk，改为运行时缓存。
+- 扫码页继续按 plain/cross/camera 细拆。
 
 ---
 

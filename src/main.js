@@ -1,11 +1,32 @@
-import { encodeToCubeCode } from './encoder.js';
 import { DATA_TYPE_URL, decodeCubeCode } from './decoder.js';
-import { startScanner } from './scanner.js';
-import { createCube } from './cube3d.js';
 import { renderCrossNet, downloadCrossNet } from './crossnet.js';
-import { scanCrossNet, scanPlain } from './quickscan.js';
 import { t, toggleLang } from './i18n/index.js';
 import { isSafeUrlOrDeepLink } from './url-utils.js';
+
+let encoderModulePromise = null;
+let cube3dModulePromise = null;
+let scannerModulePromise = null;
+let quickscanModulePromise = null;
+
+function loadEncoderModule() {
+  encoderModulePromise ||= import('./encoder.js');
+  return encoderModulePromise;
+}
+
+function loadCube3dModule() {
+  cube3dModulePromise ||= import('./cube3d.js');
+  return cube3dModulePromise;
+}
+
+function loadScannerModule() {
+  scannerModulePromise ||= import('./scanner.js');
+  return scannerModulePromise;
+}
+
+function loadQuickscanModule() {
+  quickscanModulePromise ||= import('./quickscan.js');
+  return quickscanModulePromise;
+}
 
 let cube3d = null;
 let qrCanvases = [];
@@ -67,6 +88,7 @@ async function reencodeCurrent() {
   const input = document.getElementById('input-data').value.trim();
   if (!input) return;
 
+  const { encodeToCubeCode } = await loadEncoderModule();
   const results = await encodeToCubeCode(input, getEncodeOptions());
   renderEncodedResults(results);
 
@@ -80,6 +102,7 @@ async function reencodeCurrent() {
     const cubeEl = document.getElementById('cube-3d');
     if (cube3d) cube3d.dispose();
     cubeEl.innerHTML = '';
+    const { createCube } = await loadCube3dModule();
     cube3d = createCube(cubeEl, qrCanvases, { materialMode, geneColor });
   }
 }
@@ -372,6 +395,7 @@ btnEncode.addEventListener('click', async () => {
   btnSingle.classList.remove('active');
 
   try {
+    const { encodeToCubeCode } = await loadEncoderModule();
     const results = await encodeToCubeCode(input, getEncodeOptions());
     output.innerHTML = '';
 
@@ -391,6 +415,7 @@ btnEncode.addEventListener('click', async () => {
       cubeContainer.style.display = 'block';
       const cubeEl = document.getElementById('cube-3d');
       cubeEl.innerHTML = '';
+      const { createCube } = await loadCube3dModule();
       cube3d = createCube(cubeEl, qrCanvases, { materialMode, geneColor });
     }
   } catch (err) {
@@ -447,7 +472,7 @@ btnNext.addEventListener('click', () => {
 });
 
 // Cross net toggle
-btnCross.addEventListener('click', () => {
+btnCross.addEventListener('click', async () => {
   showCross = !showCross;
   showSingle = false;
   btnSingle.classList.remove('active');
@@ -466,6 +491,7 @@ btnCross.addEventListener('click', () => {
     cubeContainer.style.display = 'block';
     const cubeEl = document.getElementById('cube-3d');
     cubeEl.innerHTML = '';
+    const { createCube } = await loadCube3dModule();
     cube3d = createCube(cubeEl, qrCanvases, { materialMode, geneColor });
   }
 });
@@ -704,7 +730,7 @@ fileInput.addEventListener('change', (e) => {
   if (!file) return;
 
   const img = new Image();
-  img.onload = () => {
+  img.onload = async () => {
     const canvas = document.createElement('canvas');
     canvas.width = img.naturalWidth;
     canvas.height = img.naturalHeight;
@@ -714,6 +740,7 @@ fileInput.addEventListener('change', (e) => {
     const output = document.getElementById('decoded-output');
 
     if (plainScanMode) {
+      const { scanPlain } = await loadQuickscanModule();
       const result = scanPlain(canvas);
       if (result.found) {
         renderPlainQrOutput(output, result.data);
@@ -724,6 +751,7 @@ fileInput.addEventListener('change', (e) => {
       return;
     }
 
+    const { scanCrossNet } = await loadQuickscanModule();
     const result = scanCrossNet(canvas);
 
     if (result.found > 0) {
@@ -792,6 +820,7 @@ async function startCamera(quick = false) {
   const canvas = document.getElementById('scan-canvas');
 
   try {
+    const { startScanner } = await loadScannerModule();
     scanner = startScanner(video, canvas, (_payloadBytes, faceId) => {
       if (plainScanMode) {
         renderPlainQrOutput(document.getElementById('decoded-output'), _payloadBytes);
