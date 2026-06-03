@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { decodeCubeCode } from '../src/decoder.js';
 import { DATA_TYPE_URL, detectDataType } from '../src/encoder.js';
 import { splitData, buildFacePayload, crc16 } from '../src/utils.js';
+import { isSafeUrlOrDeepLink } from '../src/url-utils.js';
 
 function buildProtocolPayload(text, numFaces = 6, dataType = 0x00) {
   const content = new TextEncoder().encode(text);
@@ -75,9 +76,16 @@ describe('detectDataType', () => {
     expect(detectDataType('https://example.com')).toBe(DATA_TYPE_URL);
     expect(detectDataType('mailto:test@example.com')).toBe(DATA_TYPE_URL);
     expect(detectDataType('tel:+1234567890')).toBe(DATA_TYPE_URL);
+    expect(detectDataType('myapp://open?id=123')).toBe(DATA_TYPE_URL);
+    expect(detectDataType('intent://scan/#Intent;scheme=zxing;package=com.google.zxing.client.android;end')).toBe(DATA_TYPE_URL);
   });
 
   it('keeps ordinary text as text', () => {
     expect(detectDataType('example.com without scheme')).toBe(0x00);
+  });
+
+  it('blocks unsafe URL schemes', () => {
+    expect(isSafeUrlOrDeepLink('javascript:alert(1)')).toBe(false);
+    expect(isSafeUrlOrDeepLink('data:text/html;base64,PGgxPkJvb208L2gxPg==')).toBe(false);
   });
 });

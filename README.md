@@ -15,7 +15,7 @@ A 3D QR code system that encodes data across six faces of a cube, providing ~6x 
 
 ### Core
 
-- **Cube Code Encoding/Decoding** — 6-face data splitting with L/M/Q/H error correction; URL inputs are tagged and decoded as clickable links
+- **Cube Code Encoding/Decoding** — 6-face data splitting with L/M/Q/H error correction; URL/deep-link inputs are tagged and decoded as clickable links or app-launch links
 - **Cross Net View** — Standard cube unfolded layout
 - **Face-by-Face View** — Browse each face individually
 - **Multi-face Reassembly** — Normal mode uses all 6 faces and reconstructs data by face ID

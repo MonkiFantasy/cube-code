@@ -15,7 +15,7 @@
 ### 编码
 
 - 文本魔方码编码。
-- URL 魔方码编码：支持 `http:`, `https:`, `mailto:`, `tel:`，解码后显示为可点击链接。
+- URL/Deep Link 魔方码编码：支持普通 Web URL、`mailto:`, `tel:`, `myapp://...`, `intent://...` 等安全 scheme，解码后显示为可点击链接和“打开链接/应用”按钮。
 - 普通模式固定 6 面分片。
 - 面 payload：3-bit face ID + 13-bit chunk length + data chunk。
 - 完整 payload：version + data type + content + CRC16。
@@ -65,7 +65,7 @@
 ### 协议类型
 
 - `0x01 = binary` 未实现。
-- `0x02 = URL` 已基础实现，但危险链接提示和更细的 URL 类型 UX 未实现。
+- `0x02 = URL` 已基础实现，含 app deep link 跳转；仍未实现危险链接二次确认、scheme 白名单配置和更细的 URL 类型 UX。
 - 二进制文件上传、分片、还原下载未实现。
 
 ### 容量管理

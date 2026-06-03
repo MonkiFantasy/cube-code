@@ -20,6 +20,7 @@ export default {
   error: 'Error',
   cameraError: 'Camera error',
   decodedResult: 'Decoded result',
+  openLinkOrApp: 'Open Link/App',
   rotateHint: 'Drag to rotate the cube',
   langSwitch: '中文',
   viewCross: 'Cross Net',

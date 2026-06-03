@@ -1005,3 +1005,21 @@ button#btn-decode:hover,
   .independent-mode,
   .error-level-selector { flex: 1 1 100%; }
 }
+
+.decoded-url {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.decoded-url button {
+  align-self: flex-start;
+  padding: 0.55rem 0.9rem;
+  border: 0;
+  border-radius: 999px;
+  color: #fff;
+  cursor: pointer;
+  font-weight: 800;
+  background: linear-gradient(135deg, var(--primary), var(--primary-2));
+  box-shadow: 0 10px 24px rgba(79,70,229,0.22);
+}

@@ -20,6 +20,7 @@ export default {
   error: '错误',
   cameraError: '摄像头错误',
   decodedResult: '解码结果',
+  openLinkOrApp: '打开链接/应用',
   rotateHint: '拖拽旋转立方体',
   langSwitch: 'EN',
   viewCross: '十字展开图',

@@ -1,6 +1,7 @@
 import QRCode from 'qrcode';
 import { splitData, buildFacePayload, crc16 } from './utils.js';
 import { bytesToBase64 } from './encoder-utils.js';
+import { isSafeUrlOrDeepLink } from './url-utils.js';
 
 const PROTOCOL_VERSION = 1;
 export const DATA_TYPE_TEXT = 0x00;
@@ -168,19 +169,7 @@ function overlayIcon(canvas, icon) {
 export { FACE_COLORS };
 
 export function detectDataType(data) {
-  return isSupportedUrl(data) ? DATA_TYPE_URL : DATA_TYPE_TEXT;
-}
-
-export function isSupportedUrl(value) {
-  const text = String(value || '').trim();
-  if (!text) return false;
-
-  try {
-    const url = new URL(text);
-    return ['http:', 'https:', 'mailto:', 'tel:'].includes(url.protocol);
-  } catch {
-    return false;
-  }
+  return isSafeUrlOrDeepLink(data) ? DATA_TYPE_URL : DATA_TYPE_TEXT;
 }
 
 function concatBytes(arrays) {

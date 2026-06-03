@@ -5,6 +5,7 @@ import { createCube } from './cube3d.js';
 import { renderCrossNet, downloadCrossNet } from './crossnet.js';
 import { scanCrossNet, scanPlain } from './quickscan.js';
 import { t, toggleLang } from './i18n/index.js';
+import { isSafeUrlOrDeepLink } from './url-utils.js';
 
 let cube3d = null;
 let qrCanvases = [];
@@ -148,13 +149,8 @@ function updateCapacityHint() {
 function renderDecodedOutput(output, decoded) {
   output.textContent = '';
 
-  if (decoded?.dataType === DATA_TYPE_URL && isSafeDisplayUrl(decoded.data)) {
-    const link = document.createElement('a');
-    link.href = decoded.data;
-    link.textContent = decoded.data;
-    link.target = '_blank';
-    link.rel = 'noopener noreferrer';
-    output.appendChild(link);
+  if (decoded?.dataType === DATA_TYPE_URL && isSafeUrlOrDeepLink(decoded.data)) {
+    renderUrlOrDeepLink(output, decoded.data);
     return;
   }
 
@@ -164,26 +160,35 @@ function renderDecodedOutput(output, decoded) {
 function renderPlainQrOutput(output, data) {
   output.textContent = '';
 
-  if (isSafeDisplayUrl(data)) {
-    const link = document.createElement('a');
-    link.href = data;
-    link.textContent = data;
-    link.target = '_blank';
-    link.rel = 'noopener noreferrer';
-    output.appendChild(link);
+  if (isSafeUrlOrDeepLink(data)) {
+    renderUrlOrDeepLink(output, data);
     return;
   }
 
   output.textContent = data;
 }
 
-function isSafeDisplayUrl(value) {
-  try {
-    const url = new URL(String(value || '').trim());
-    return ['http:', 'https:', 'mailto:', 'tel:'].includes(url.protocol);
-  } catch {
-    return false;
-  }
+function renderUrlOrDeepLink(output, value) {
+  const url = String(value || '').trim();
+  const wrap = document.createElement('div');
+  wrap.className = 'decoded-url';
+
+  const link = document.createElement('a');
+  link.href = url;
+  link.textContent = url;
+  link.target = '_blank';
+  link.rel = 'noopener noreferrer';
+
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.textContent = t('openLinkOrApp');
+  button.addEventListener('click', () => {
+    window.location.href = url;
+  });
+
+  wrap.appendChild(link);
+  wrap.appendChild(button);
+  output.appendChild(wrap);
 }
 
 document.getElementById('lang-switch').addEventListener('click', () => {
