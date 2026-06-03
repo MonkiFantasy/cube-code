@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#4f46e5">
+  <title>魔方码离线中</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      min-height: 100vh;
+      margin: 0;
+      display: grid;
+      place-items: center;
+      padding: 1.25rem;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      color: #172033;
+      background:
+        radial-gradient(circle at 18% 8%, rgba(79, 70, 229, 0.28), transparent 32%),
+        radial-gradient(circle at 86% 12%, rgba(6, 182, 212, 0.24), transparent 30%),
+        linear-gradient(135deg, #f8fafc 0%, #eef2ff 48%, #f5f3ff 100%);
+    }
+    .card {
+      width: min(560px, 100%);
+      padding: 2rem;
+      border: 1px solid rgba(148, 163, 184, 0.32);
+      border-radius: 28px;
+      background: rgba(255,255,255,0.84);
+      box-shadow: 0 24px 70px rgba(15, 23, 42, 0.16);
+      text-align: center;
+      backdrop-filter: blur(16px);
+    }
+    .cube {
+      width: 120px;
+      height: 120px;
+      margin: 0 auto 1rem;
+      position: relative;
+      transform-style: preserve-3d;
+      animation: spin 3.8s ease-in-out infinite;
+    }
+    .face {
+      position: absolute;
+      inset: 0;
+      border-radius: 18px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+      padding: 12px;
+      background: rgba(255,255,255,0.82);
+      border: 1px solid rgba(255,255,255,0.9);
+      box-shadow: inset 0 0 20px rgba(255,255,255,0.55);
+    }
+    .face span { border-radius: 7px; background: var(--c); }
+    .front { transform: translateZ(60px); --c:#4f46e5; }
+    .right { transform: rotateY(90deg) translateZ(60px); --c:#06b6d4; }
+    .top { transform: rotateX(90deg) translateZ(60px); --c:#a855f7; }
+    @keyframes spin {
+      0%, 100% { transform: rotateX(-18deg) rotateY(-24deg); }
+      50% { transform: rotateX(-12deg) rotateY(28deg); }
+    }
+    h1 {
+      margin: 0 0 0.6rem;
+      font-size: clamp(1.8rem, 7vw, 3rem);
+      letter-spacing: -0.06em;
+      background: linear-gradient(135deg, #3730a3, #06b6d4);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+    p { margin: 0.45rem 0; color: #64748b; line-height: 1.7; }
+    .hint {
+      margin-top: 1.1rem;
+      padding: 0.85rem 1rem;
+      border-radius: 16px;
+      background: rgba(79,70,229,0.08);
+      color: #3730a3;
+      font-weight: 700;
+    }
+    button {
+      margin-top: 1.25rem;
+      padding: 0.75rem 1.1rem;
+      border: 0;
+      border-radius: 999px;
+      color: white;
+      font-weight: 800;
+      cursor: pointer;
+      background: linear-gradient(135deg, #4f46e5, #06b6d4);
+      box-shadow: 0 14px 30px rgba(79,70,229,0.26);
+    }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <div class="cube" aria-hidden="true">
+      <div class="face front"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+      <div class="face right"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+      <div class="face top"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+    </div>
+    <h1>魔方进入离线模式</h1>
+    <p>网络暂时不在场，但已经缓存的魔方码页面仍可能可以继续使用。</p>
+    <p>如果你刚刚打开的是一个还没缓存过的页面，请恢复网络后再试一次。</p>
+    <div class="hint">提示：PWA 像一个随身小仓库，离线时会尽量从缓存里拿东西。</div>
+    <button onclick="location.reload()">重新连接魔方</button>
+  </main>
+</body>
+</html>

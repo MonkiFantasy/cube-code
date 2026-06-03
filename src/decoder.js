@@ -1,5 +1,8 @@
 import { parseFacePayload, verifyCrc } from './utils.js';
 
+export const DATA_TYPE_TEXT = 0x00;
+export const DATA_TYPE_URL = 0x02;
+
 /**
  * Reassemble data from scanned face payloads.
  * facePayloads: array of Uint8Array, one per scanned face.

@@ -77,6 +77,38 @@ export function scanSingle(source) {
 }
 
 /**
+ * Scan a plain/ordinary QR code and return its raw text content.
+ */
+export function scanPlain(source) {
+  const { imageData, width, height } = getImageData(source);
+  const whole = jsQR(imageData.data, width, height);
+
+  if (whole && whole.data) {
+    return { found: true, data: whole.data };
+  }
+
+  // Uploaded photos often contain a QR somewhere in the frame rather than
+  // tightly cropped. Try centered crops and grid regions before giving up.
+  const candidates = [
+    centeredRegion(width, height, 0.85),
+    centeredRegion(width, height, 0.7),
+    centeredRegion(width, height, 0.55),
+    ...gridRegions(width, height, 3, 3),
+    ...gridRegions(width, height, 4, 4),
+  ];
+
+  for (const region of candidates) {
+    const regionData = extractRegion(imageData, region.x, region.y, region.w, region.h);
+    const code = jsQR(regionData.data, region.w, region.h);
+    if (code && code.data) {
+      return { found: true, data: code.data };
+    }
+  }
+
+  return { found: false, data: null };
+}
+
+/**
  * Scan from camera video frame — crops and scans the cross net area.
  */
 export function scanVideoFrame(videoEl, canvasEl, overlayRect) {
@@ -123,6 +155,36 @@ function extractRegion(imageData, x, y, w, h) {
   }
 
   return new ImageData(region, w, h);
+}
+
+function centeredRegion(width, height, ratio) {
+  const w = Math.max(1, Math.floor(width * ratio));
+  const h = Math.max(1, Math.floor(height * ratio));
+  return {
+    x: Math.floor((width - w) / 2),
+    y: Math.floor((height - h) / 2),
+    w,
+    h,
+  };
+}
+
+function gridRegions(width, height, cols, rows) {
+  const regions = [];
+  const cellW = Math.floor(width / cols);
+  const cellH = Math.floor(height / rows);
+
+  for (let row = 0; row < rows; row++) {
+    for (let col = 0; col < cols; col++) {
+      regions.push({
+        x: col * cellW,
+        y: row * cellH,
+        w: col === cols - 1 ? width - col * cellW : cellW,
+        h: row === rows - 1 ? height - row * cellH : cellH,
+      });
+    }
+  }
+
+  return regions;
 }
 
 function extractFaceId(payloadBytes) {

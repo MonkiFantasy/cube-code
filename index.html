@@ -8,18 +8,18 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Cube Code</title>
-  <link rel="manifest" href="/manifest.json">
-  <link rel="apple-touch-icon" href="/icon-192.png">
+  <link rel="apple-touch-icon" href="%BASE_URL%icon-192.png">
   <link rel="stylesheet" href="/src/style.css">
-  <script>
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/sw.js').catch(() => {});
-      });
-    }
-  </script>
 </head>
 <body>
+  <div id="offline-banner" class="offline-banner" hidden>
+    <div class="offline-orb" aria-hidden="true">🧊</div>
+    <div>
+      <strong>离线魔方模式</strong>
+      <span>网络断开了，已缓存的功能仍可继续使用。</span>
+    </div>
+    <button id="offline-retry" type="button">重试</button>
+  </div>
   <header>
     <h1 id="title">魔方码</h1>
     <p class="subtitle" id="subtitle">3D 二维码 — 6 倍数据容量</p>
@@ -34,48 +34,55 @@
 
     <section id="encode" class="tab-content active">
       <textarea id="input-data" rows="3"></textarea>
-      <div class="selectors-row">
-        <div class="face-count-selector">
-          <label for="face-count" data-i18n="faceCount">面数:</label>
-          <select id="face-count">
-            <option value="1">1</option>
-            <option value="2">2</option>
-            <option value="3">3</option>
-            <option value="4">4</option>
-            <option value="5">5</option>
-            <option value="6" selected>6</option>
-          </select>
+      <div id="capacity-hint" class="capacity-hint"></div>
+      <details class="encode-options">
+        <summary data-i18n="encodeOptions">生成选项</summary>
+        <div class="selectors-row">
+          <div class="face-count-selector">
+            <label for="face-count" data-i18n="faceCount">面数:</label>
+            <select id="face-count">
+              <option value="1">1</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+              <option value="4">4</option>
+              <option value="5">5</option>
+              <option value="6" selected>6</option>
+            </select>
+          </div>
+          <div class="independent-mode">
+            <label>
+              <input type="checkbox" id="independent-mode">
+              <span data-i18n="independentMode">独立模式</span>
+            </label>
+          </div>
+          <div class="error-level-selector">
+            <label for="error-level" data-i18n="errorLevel">纠错:</label>
+            <select id="error-level">
+              <option value="L">L</option>
+              <option value="M" selected>M</option>
+              <option value="Q">Q</option>
+              <option value="H">H</option>
+            </select>
+          </div>
         </div>
-        <div class="independent-mode">
-          <label>
-            <input type="checkbox" id="independent-mode">
-            <span data-i18n="independentMode">独立模式</span>
-          </label>
-        </div>
-        <div class="error-level-selector">
-          <label for="error-level" data-i18n="errorLevel">纠错:</label>
-          <select id="error-level">
-            <option value="L">L</option>
-            <option value="M" selected>M</option>
-            <option value="Q">Q</option>
-            <option value="H">H</option>
-          </select>
-        </div>
-      </div>
+      </details>
       <button id="btn-encode">生成魔方码</button>
       <div id="encode-toolbar" class="toolbar" style="display:none">
         <button id="btn-cross" data-i18n="viewCross">十字展开图</button>
-        <button id="btn-color-mode" data-i18n="modeColorful">炫彩</button>
         <button id="btn-single" data-i18n="viewSingle">逐面查看</button>
-        <button id="btn-icon" data-i18n="addIcon">添加图标</button>
-        <button id="btn-empty-face" data-i18n="emptyFaceImage" style="display:none">空面图片</button>
-        <button id="btn-material" data-i18n="standardMaterial">标准材质</button>
-        <div id="gene-color-picker" class="gene-color-picker" style="display:none">
-          <button class="gene-color-btn active" data-color="purple" style="background:#8B5CF6" title="贪">紫</button>
-          <button class="gene-color-btn" data-color="red" style="background:#EF4444" title="嗔">红</button>
-          <button class="gene-color-btn" data-color="blue" style="background:#3B82F6" title="痴">蓝</button>
-        </div>
         <button id="btn-save" data-i18n="saveImage">保存图片</button>
+        <details class="toolbar-more">
+          <summary data-i18n="displayOptions">外观/高级</summary>
+          <button id="btn-color-mode" data-i18n="modeColorful">炫彩</button>
+          <button id="btn-icon" data-i18n="addIcon">添加图标</button>
+          <button id="btn-empty-face" data-i18n="emptyFaceImage" style="display:none">空面图片</button>
+          <button id="btn-material" data-i18n="standardMaterial">标准材质</button>
+          <div id="gene-color-picker" class="gene-color-picker" style="display:none">
+            <button class="gene-color-btn active" data-color="purple" style="--gene-color:#7C2DFF" title="贪（紫色）">贪</button>
+            <button class="gene-color-btn" data-color="red" style="--gene-color:#E7352A" title="嗔（红色）">嗔</button>
+            <button class="gene-color-btn" data-color="blue" style="--gene-color:#14B8A6" title="痴（蓝绿色）">痴</button>
+          </div>
+        </details>
       </div>
       <input type="file" id="icon-input" accept="image/*" style="display:none">
       <input type="file" id="empty-face-input" accept="image/*" style="display:none">
@@ -106,6 +113,7 @@
     <section id="decode" class="tab-content">
       <div class="toolbar">
         <button id="btn-scan-mode" data-i18n="quickScan">快速扫描</button>
+        <button id="btn-plain-mode" data-i18n="plainQrScan">普通二维码</button>
         <button id="btn-upload" data-i18n="uploadImage">上传图片</button>
       </div>
       <input type="file" id="file-input" accept="image/*" style="display:none">

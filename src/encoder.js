@@ -1,9 +1,11 @@
 import QRCode from 'qrcode';
 import { splitData, buildFacePayload, crc16 } from './utils.js';
 import { bytesToBase64 } from './encoder-utils.js';
+import { isSafeUrlOrDeepLink } from './url-utils.js';
 
 const PROTOCOL_VERSION = 1;
-const DATA_TYPE_TEXT = 0x00;
+export const DATA_TYPE_TEXT = 0x00;
+export const DATA_TYPE_URL = 0x02;
 
 // Rubik's cube colors for each face (face 1-6)
 // dark = module color, light = background color
@@ -37,9 +39,10 @@ const FACE_COLORS_INVERTED_COLORFUL = [
 ];
 
 const GENE_QR_COLORS = {
-  purple: { dark: '#8B5CF6', light: '#ffffff' },
-  red: { dark: '#EF4444', light: '#ffffff' },
-  blue: { dark: '#3B82F6', light: '#ffffff' },
+  // 贪：深紫琉璃；嗔：朱红琥珀；痴：蓝绿色青玉
+  purple: { dark: '#7C2DFF', light: '#ffffff' },
+  red: { dark: '#E7352A', light: '#ffffff' },
+  blue: { dark: '#14B8A6', light: '#ffffff' },
 };
 
 /**
@@ -58,9 +61,10 @@ const GENE_QR_COLORS = {
 export async function encodeToCubeCode(data, { mode = 'colorful', icon = null, numFaces = 6, independent = false, errorLevel = 'M', geneColor = 'purple', emptyFaceImage = null } = {}) {
   const encoder = new TextEncoder();
   const dataBytes = encoder.encode(data);
+  const dataType = detectDataType(data);
 
   const versionByte = new Uint8Array([PROTOCOL_VERSION]);
-  const typeByte = new Uint8Array([DATA_TYPE_TEXT]);
+  const typeByte = new Uint8Array([dataType]);
   const crc = crc16(dataBytes);
   const crcBytes = new Uint8Array([crc >> 8, crc & 0xFF]);
 
@@ -163,6 +167,10 @@ function overlayIcon(canvas, icon) {
 }
 
 export { FACE_COLORS };
+
+export function detectDataType(data) {
+  return isSafeUrlOrDeepLink(data) ? DATA_TYPE_URL : DATA_TYPE_TEXT;
+}
 
 function concatBytes(arrays) {
   const totalLen = arrays.reduce((s, a) => s + a.length, 0);

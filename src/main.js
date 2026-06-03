@@ -1,18 +1,22 @@
 import { encodeToCubeCode } from './encoder.js';
-import { decodeCubeCode } from './decoder.js';
+import { DATA_TYPE_URL, decodeCubeCode } from './decoder.js';
 import { startScanner } from './scanner.js';
 import { createCube } from './cube3d.js';
 import { renderCrossNet, downloadCrossNet } from './crossnet.js';
-import { scanCrossNet } from './quickscan.js';
+import { scanCrossNet, scanPlain } from './quickscan.js';
 import { t, toggleLang } from './i18n/index.js';
+import { isSafeUrlOrDeepLink } from './url-utils.js';
 
 let cube3d = null;
 let qrCanvases = [];
 let showCross = false;
 let quickScanMode = false;
+let plainScanMode = false;
 let colorMode = 'colorful'; // 'colorful' | 'bw' | 'inverted' | 'inverted-colorful'
 const COLOR_MODES = ['colorful', 'bw', 'inverted', 'inverted-colorful'];
 const COLOR_MODE_KEYS = { colorful: 'modeColorful', bw: 'modeBW', inverted: 'modeInverted', 'inverted-colorful': 'modeInvertedColorful' };
+const MATERIAL_MODES = ['standard', 'glass', 'gene'];
+const MATERIAL_MODE_KEYS = { standard: 'standardMaterial', glass: 'glassMaterial', gene: 'geneMaterial' };
 let singleFaceIdx = 0;
 let showSingle = false;
 let currentIcon = null;
@@ -22,6 +26,11 @@ let geneColor = 'purple';
 let numFaces = 6;
 let independentMode = false;
 let errorLevel = 'M';
+
+// QR Code version 40 byte-mode capacities. The qrcode library chooses the
+// smallest version automatically up to V40; these values give a practical upper
+// bound for user-facing hints.
+const QR_V40_BYTE_CAPACITY = { L: 2953, M: 2331, Q: 1663, H: 1273 };
 
 function getEncodeOptions() {
   return {
@@ -87,17 +96,99 @@ function applyLang() {
   document.getElementById('lang-switch').textContent = t('langSwitch');
   document.getElementById('btn-cross').textContent = showCross ? t('viewGrid') : t('viewCross');
   document.getElementById('btn-scan-mode').textContent = quickScanMode ? t('cameraMode') : t('quickScan');
+  document.getElementById('btn-plain-mode').textContent = plainScanMode ? t('cubeQrScan') : t('plainQrScan');
   document.getElementById('quickscan-hint').textContent = t('quickScanHint');
   document.getElementById('btn-color-mode').textContent = t(COLOR_MODE_KEYS[colorMode]);
   document.getElementById('btn-single').textContent = t('viewSingle');
   document.getElementById('btn-icon').textContent = currentIcon ? t('removeIcon') : t('addIcon');
+  document.getElementById('btn-material').textContent = t(MATERIAL_MODE_KEYS[materialMode]);
+  const dynamicIds = new Set(['btn-cross', 'btn-scan-mode', 'btn-plain-mode', 'btn-color-mode', 'btn-single', 'btn-icon', 'btn-material']);
   document.querySelectorAll('[data-i18n]').forEach((el) => {
     const key = el.dataset.i18n;
-    if (key && el.id !== 'btn-cross' && el.id !== 'btn-scan-mode' && el.id !== 'btn-color-mode' && el.id !== 'btn-single') {
+    if (key && !dynamicIds.has(el.id)) {
       el.textContent = t(key);
     }
   });
   document.documentElement.lang = t('langSwitch') === 'EN' ? 'zh-CN' : 'en';
+}
+
+function getEffectiveErrorLevel() {
+  return currentIcon ? 'H' : errorLevel;
+}
+
+function estimateCapacityBytes() {
+  const qrCapacity = QR_V40_BYTE_CAPACITY[getEffectiveErrorLevel()] || QR_V40_BYTE_CAPACITY.M;
+
+  if (independentMode) {
+    // Independent mode stores the raw text in every used ordinary QR, so one
+    // QR's byte capacity is the limiting factor.
+    return qrCapacity;
+  }
+
+  // Normal mode stores binary face payloads as base64 text in QR codes.
+  // Each face has a 2-byte face header before base64 expansion, and the full
+  // reassembled payload has 4 bytes of protocol overhead.
+  const perFaceChunkBytes = Math.max(0, Math.floor(qrCapacity / 4) * 3 - 2);
+  return Math.max(0, perFaceChunkBytes * 6 - 4);
+}
+
+function updateCapacityHint() {
+  const inputEl = document.getElementById('input-data');
+  const hint = document.getElementById('capacity-hint');
+  if (!inputEl || !hint) return;
+
+  const byteLen = new TextEncoder().encode(inputEl.value.trim()).length;
+  const maxBytes = estimateCapacityBytes();
+  const pct = maxBytes ? Math.min(999, Math.round((byteLen / maxBytes) * 100)) : 0;
+  const over = byteLen > maxBytes;
+
+  hint.classList.toggle('over', over);
+  hint.textContent = `${over ? t('capacityOver') : t('capacityOk')}: ${byteLen} / ${maxBytes} bytes (${t('approx')} ${pct}%)`;
+}
+
+function renderDecodedOutput(output, decoded) {
+  output.textContent = '';
+
+  if (decoded?.dataType === DATA_TYPE_URL && isSafeUrlOrDeepLink(decoded.data)) {
+    renderUrlOrDeepLink(output, decoded.data);
+    return;
+  }
+
+  output.textContent = decoded?.data ?? '';
+}
+
+function renderPlainQrOutput(output, data) {
+  output.textContent = '';
+
+  if (isSafeUrlOrDeepLink(data)) {
+    renderUrlOrDeepLink(output, data);
+    return;
+  }
+
+  output.textContent = data;
+}
+
+function renderUrlOrDeepLink(output, value) {
+  const url = String(value || '').trim();
+  const wrap = document.createElement('div');
+  wrap.className = 'decoded-url';
+
+  const link = document.createElement('a');
+  link.href = url;
+  link.textContent = url;
+  link.target = '_blank';
+  link.rel = 'noopener noreferrer';
+
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.textContent = t('openLinkOrApp');
+  button.addEventListener('click', () => {
+    window.location.href = url;
+  });
+
+  wrap.appendChild(link);
+  wrap.appendChild(button);
+  output.appendChild(wrap);
 }
 
 document.getElementById('lang-switch').addEventListener('click', () => {
@@ -106,6 +197,27 @@ document.getElementById('lang-switch').addEventListener('click', () => {
 });
 
 applyLang();
+updateCapacityHint();
+updateOfflineUi();
+
+document.getElementById('input-data').addEventListener('input', updateCapacityHint);
+
+window.addEventListener('online', updateOfflineUi);
+window.addEventListener('offline', updateOfflineUi);
+document.getElementById('offline-retry')?.addEventListener('click', () => {
+  if (navigator.onLine) {
+    window.location.reload();
+  } else {
+    updateOfflineUi();
+  }
+});
+
+function updateOfflineUi() {
+  const banner = document.getElementById('offline-banner');
+  if (banner) {
+    banner.hidden = navigator.onLine;
+  }
+}
 
 // --- Tab switching ---
 document.querySelectorAll('.tab').forEach((tab) => {
@@ -122,6 +234,7 @@ const faceCountSelect = document.getElementById('face-count');
 faceCountSelect.disabled = true;
 faceCountSelect.addEventListener('change', (e) => {
   numFaces = parseInt(e.target.value, 10);
+  updateCapacityHint();
 });
 
 // --- Independent mode toggle ---
@@ -137,12 +250,14 @@ independentModeCheckbox.addEventListener('change', (e) => {
     numFaces = 6;
     faceCountSelect.value = '6';
   }
+  updateCapacityHint();
 });
 
 // --- Error level selector ---
 const errorLevelSelect = document.getElementById('error-level');
 errorLevelSelect.addEventListener('change', (e) => {
   errorLevel = e.target.value;
+  updateCapacityHint();
 });
 
 // --- Face navigation buttons ---
@@ -303,6 +418,18 @@ const btnEmptyFace = document.getElementById('btn-empty-face');
 const emptyFaceInput = document.getElementById('empty-face-input');
 
 btnIcon.addEventListener('click', () => {
+  if (currentIcon) {
+    currentIcon = null;
+    btnIcon.classList.remove('active');
+    btnIcon.textContent = t('addIcon');
+    updateCapacityHint();
+
+    if (document.getElementById('input-data').value.trim() && qrCanvases.length > 0) {
+      reencodeWithIcon();
+    }
+    return;
+  }
+
   iconInput.click();
 });
 
@@ -314,6 +441,8 @@ iconInput.addEventListener('change', (e) => {
   img.onload = () => {
     currentIcon = img;
     btnIcon.classList.add('active');
+    btnIcon.textContent = t('removeIcon');
+    updateCapacityHint();
 
     // Re-encode with icon if data exists
     const input = document.getElementById('input-data').value.trim();
@@ -354,22 +483,7 @@ async function reencodeWithIcon() {
   await reencodeCurrent();
 }
 
-// Remove icon
-btnIcon.addEventListener('dblclick', () => {
-  currentIcon = null;
-  btnIcon.classList.remove('active');
-
-  // Re-encode without icon if data exists
-  const input = document.getElementById('input-data').value.trim();
-  if (input && qrCanvases.length > 0) {
-    reencodeWithIcon();
-  }
-});
-
 // Material mode toggle (standard/glass/gene)
-const MATERIAL_MODES = ['standard', 'glass', 'gene'];
-const MATERIAL_MODE_KEYS = { standard: 'standardMaterial', glass: 'glassMaterial', gene: 'geneMaterial' };
-
 const btnMaterial = document.getElementById('btn-material');
 btnMaterial.addEventListener('click', async () => {
   const idx = MATERIAL_MODES.indexOf(materialMode);
@@ -431,6 +545,7 @@ for (let i = 1; i <= 6; i++) {
 
 const btnDecode = document.getElementById('btn-decode');
 const btnScanMode = document.getElementById('btn-scan-mode');
+const btnPlainMode = document.getElementById('btn-plain-mode');
 const btnUpload = document.getElementById('btn-upload');
 const fileInput = document.getElementById('file-input');
 const decodeSection = document.getElementById('decode');
@@ -439,6 +554,11 @@ const quickscanHint = document.getElementById('quickscan-hint');
 
 // Quick scan mode toggle
 btnScanMode.addEventListener('click', () => {
+  if (plainScanMode) {
+    plainScanMode = false;
+    btnPlainMode.textContent = t('plainQrScan');
+    btnPlainMode.classList.remove('active');
+  }
   quickScanMode = !quickScanMode;
   btnScanMode.textContent = quickScanMode ? t('cameraMode') : t('quickScan');
   btnScanMode.classList.toggle('active', quickScanMode);
@@ -446,6 +566,25 @@ btnScanMode.addEventListener('click', () => {
   quickscanHint.style.display = quickScanMode ? 'block' : 'none';
 
   // Restart scanner with new mode
+  if (scanner) { scanner.stop(); scanner = null; }
+  startCamera(quickScanMode);
+});
+
+// Plain QR mode: scan ordinary QR codes and display raw text directly.
+btnPlainMode.addEventListener('click', () => {
+  plainScanMode = !plainScanMode;
+  btnPlainMode.textContent = plainScanMode ? t('cubeQrScan') : t('plainQrScan');
+  btnPlainMode.classList.toggle('active', plainScanMode);
+
+  if (plainScanMode) {
+    quickScanMode = false;
+    btnScanMode.textContent = t('quickScan');
+    btnScanMode.classList.remove('active');
+    quickscanOverlay.style.display = 'none';
+    quickscanHint.style.display = 'none';
+    document.getElementById('decoded-output').textContent = '';
+  }
+
   if (scanner) { scanner.stop(); scanner = null; }
   startCamera(quickScanMode);
 });
@@ -465,8 +604,20 @@ fileInput.addEventListener('change', (e) => {
     const ctx = canvas.getContext('2d');
     ctx.drawImage(img, 0, 0);
 
-    const result = scanCrossNet(canvas);
     const output = document.getElementById('decoded-output');
+
+    if (plainScanMode) {
+      const result = scanPlain(canvas);
+      if (result.found) {
+        renderPlainQrOutput(output, result.data);
+      } else {
+        output.textContent = t('noFaces');
+      }
+      fileInput.value = '';
+      return;
+    }
+
+    const result = scanCrossNet(canvas);
 
     if (result.found > 0) {
       for (const [faceId, payload] of result.payloads) {
@@ -480,7 +631,7 @@ fileInput.addEventListener('change', (e) => {
       if (scannedPayloads.length >= numFaces) {
         const decoded = decodeCubeCode(scannedPayloads, numFaces);
         if (decoded.success) {
-          output.textContent = decoded.data;
+          renderDecodedOutput(output, decoded);
         }
       } else {
         output.textContent = '';
@@ -516,7 +667,7 @@ btnDecode.addEventListener('click', () => {
   const decoded = decodeCubeCode(scannedPayloads, numFaces);
 
   if (decoded.success) {
-    output.textContent = decoded.data;
+    renderDecodedOutput(output, decoded);
   } else if (decoded.missingFaces.length > 0) {
     output.textContent = `${t('missingFaces')}: ${decoded.missingFaces.join(', ')}`;
   } else {
@@ -537,6 +688,11 @@ async function startCamera(quick = false) {
 
   try {
     scanner = startScanner(video, canvas, (_payloadBytes, faceId) => {
+      if (plainScanMode) {
+        renderPlainQrOutput(document.getElementById('decoded-output'), _payloadBytes);
+        return;
+      }
+
       // Deduplicate by faceId
       if (!scannedPayloads.some((p) => extractFaceId(p) === faceId)) {
         scannedPayloads.push(_payloadBytes);
@@ -546,11 +702,11 @@ async function startCamera(quick = false) {
         if (scannedPayloads.length >= numFaces) {
           const decoded = decodeCubeCode(scannedPayloads, numFaces);
           if (decoded.success) {
-            document.getElementById('decoded-output').textContent = decoded.data;
+            renderDecodedOutput(document.getElementById('decoded-output'), decoded);
           }
         }
       }
-    }, { quick });
+    }, { quick, plain: plainScanMode });
   } catch (err) {
     document.getElementById('scan-status').textContent = `${t('cameraError')}: ${err.message}`;
   }
