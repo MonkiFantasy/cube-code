@@ -8,9 +8,10 @@ const httpsConfig = fs.existsSync('.certs/key.pem')
       cert: fs.readFileSync('.certs/cert.pem'),
     }
   : undefined;
+const basePath = process.env.BASE_PATH || '/';
 
 export default defineConfig({
-  base: process.env.BASE_PATH || '/',
+  base: basePath,
   plugins: [
     VitePWA({
       registerType: 'autoUpdate',
@@ -21,8 +22,9 @@ export default defineConfig({
         name: '魔方码 - 3D QR Code',
         short_name: 'Cube Code',
         description: '3D QR code system - encode data across six faces of a cube',
-        start_url: '.',
-        scope: '.',
+        id: basePath,
+        start_url: basePath,
+        scope: basePath,
         display: 'standalone',
         background_color: '#f5f5f5',
         theme_color: '#333333',
@@ -45,13 +47,6 @@ export default defineConfig({
         navigateFallback: 'index.html',
         globPatterns: ['**/*.{js,css,html,png,svg,ico,json}'],
         runtimeCaching: [
-          {
-            urlPattern: ({ request }) => request.mode === 'navigate',
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'cube-code-html',
-            },
-          },
           {
             urlPattern: ({ request }) => ['style', 'script', 'worker'].includes(request.destination),
             handler: 'StaleWhileRevalidate',

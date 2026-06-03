@@ -51,9 +51,10 @@
 ### PWA / Android
 
 - Vite PWA 插件已接入，替代手写 `public/sw.js`。
-- PWA manifest 由 `vite-plugin-pwa` 生成。
+- PWA manifest 由 `vite-plugin-pwa` 生成，`start_url`/`scope` 跟随 `BASE_PATH`。
 - Workbox generateSW。
 - PWA 离线 fallback 页面：`public/offline.html`。
+- PWA 图标已重绘：`public/icon-192.png`, `public/icon-512.png`。
 - 应用内离线提示条：断网时显示“离线魔方模式”。
 - Android Capacitor 项目存在。
 - Android 长按 data URL 图片保存到相册。

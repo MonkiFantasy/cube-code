@@ -213,6 +213,7 @@
 - Android 9 及以下存储权限。
 - Deep link 跳转外部 App。
 - PWA/Capacitor 资源同步。
+- PWA 安装后首次启动和离线启动行为。
 
 ---
 
