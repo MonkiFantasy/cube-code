@@ -13,9 +13,9 @@ const FACE_COLORS = [
   { dark: '#B71234', light: '#ffffff' }, // face1: red
   { dark: '#CC7700', light: '#ffffff' }, // face2: orange
   { dark: '#505050', light: '#ffffff' }, // face3: dark gray
-  { dark: '#B8860B', light: '#ffffff' }, // face4: yellow
+  { dark: '#6B4F00', light: '#ffffff' }, // face4: scan-safe amber
   { dark: '#009B48', light: '#ffffff' }, // face5: green
-  { dark: '#0046AD', light: '#ffffff' }, // face6: blue
+  { dark: '#002B6B', light: '#ffffff' }, // face6: scan-safe blue
 ];
 
 // Inverted: swap dark/light — white modules on black background
@@ -30,19 +30,22 @@ const FACE_COLORS_INVERTED = [
 
 // Inverted colorful: white modules on colored backgrounds
 const FACE_COLORS_INVERTED_COLORFUL = [
-  { dark: '#ffffff', light: '#B71234' }, // face1: white on red
-  { dark: '#ffffff', light: '#CC7700' }, // face2: white on orange
-  { dark: '#ffffff', light: '#505050' }, // face3: white on gray
-  { dark: '#ffffff', light: '#B8860B' }, // face4: white on yellow
-  { dark: '#ffffff', light: '#009B48' }, // face5: white on green
-  { dark: '#ffffff', light: '#0046AD' }, // face6: white on blue
+  // Keep backgrounds intentionally dark: white-on-bright colors looks nice
+  // but is unreliable for camera decoders. These hues preserve the theme
+  // while keeping enough luminance contrast for jsQR/phone scanners.
+  { dark: '#ffffff', light: '#400000' }, // face1: white on deep red
+  { dark: '#ffffff', light: '#401000' }, // face2: white on deep orange
+  { dark: '#ffffff', light: '#101010' }, // face3: white on black gray
+  { dark: '#ffffff', light: '#281800' }, // face4: white on deep amber
+  { dark: '#ffffff', light: '#002000' }, // face5: white on deep green
+  { dark: '#ffffff', light: '#001030' }, // face6: white on deep blue
 ];
 
 const GENE_QR_COLORS = {
   // 贪：深紫琉璃；嗔：朱红琥珀；痴：蓝绿色青玉
   purple: { dark: '#7C2DFF', light: '#ffffff' },
   red: { dark: '#E7352A', light: '#ffffff' },
-  blue: { dark: '#14B8A6', light: '#ffffff' },
+  blue: { dark: '#0F766E', light: '#ffffff' },
 };
 
 /**
@@ -152,7 +155,7 @@ function drawEmptyFace(canvas, image) {
 function overlayIcon(canvas, icon) {
   const ctx = canvas.getContext('2d');
   const size = canvas.width;
-  const iconSize = size * 0.25; // Icon is 25% of QR code size
+  const iconSize = size * 0.16; // Keep icon small enough for reliable QR scanning
   const x = (size - iconSize) / 2;
   const y = (size - iconSize) / 2;
 
@@ -166,7 +169,7 @@ function overlayIcon(canvas, icon) {
   ctx.drawImage(icon, x, y, iconSize, iconSize);
 }
 
-export { FACE_COLORS };
+export { FACE_COLORS, FACE_COLORS_INVERTED, FACE_COLORS_INVERTED_COLORFUL, GENE_QR_COLORS };
 
 export function detectDataType(data) {
   return isSafeUrlOrDeepLink(data) ? DATA_TYPE_URL : DATA_TYPE_TEXT;
