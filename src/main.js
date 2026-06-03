@@ -198,24 +198,48 @@ document.getElementById('lang-switch').addEventListener('click', () => {
 
 applyLang();
 updateCapacityHint();
-updateOfflineUi();
+checkNetworkReachable();
 
 document.getElementById('input-data').addEventListener('input', updateCapacityHint);
 
-window.addEventListener('online', updateOfflineUi);
-window.addEventListener('offline', updateOfflineUi);
+window.addEventListener('online', () => checkNetworkReachable());
+window.addEventListener('offline', () => setOfflineState(true));
 document.getElementById('offline-retry')?.addEventListener('click', () => {
-  if (navigator.onLine) {
-    window.location.reload();
-  } else {
-    updateOfflineUi();
-  }
+  checkNetworkReachable({ reloadOnSuccess: true });
 });
 
-function updateOfflineUi() {
+window.setInterval(() => checkNetworkReachable(), 15000);
+
+function setOfflineState(isOffline) {
   const banner = document.getElementById('offline-banner');
   if (banner) {
-    banner.hidden = navigator.onLine;
+    banner.hidden = !isOffline;
+  }
+}
+
+async function checkNetworkReachable({ reloadOnSuccess = false } = {}) {
+  const controller = new window.AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), 6000);
+
+  try {
+    const pingUrl = new URL('__network-check__', window.location.origin + import.meta.env.BASE_URL);
+    pingUrl.searchParams.set('t', Date.now().toString());
+
+    // Do not trust navigator.onLine: some browsers report false while online,
+    // and some report true after the network is gone. This request intentionally
+    // targets a non-cached URL; any HTTP response means the network is reachable.
+    await window.fetch(pingUrl.href, {
+      cache: 'no-store',
+      credentials: 'same-origin',
+      signal: controller.signal,
+    });
+
+    setOfflineState(false);
+    if (reloadOnSuccess) window.location.reload();
+  } catch {
+    setOfflineState(true);
+  } finally {
+    window.clearTimeout(timeout);
   }
 }
 
