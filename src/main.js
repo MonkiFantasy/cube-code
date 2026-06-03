@@ -1,7 +1,7 @@
 import { DATA_TYPE_URL, decodeCubeCode } from './decoder.js';
 import { renderCrossNet, downloadCrossNet } from './crossnet.js';
 import { t, toggleLang } from './i18n/index.js';
-import { isSafeUrlOrDeepLink } from './url-utils.js';
+import { getExternalUrlInfo, isSafeUrlOrDeepLink } from './url-utils.js';
 
 let encoderModulePromise = null;
 let cube3dModulePromise = null;
@@ -159,18 +159,62 @@ function estimateCapacityBytes() {
   return Math.max(0, perFaceChunkBytes * 6 - 4);
 }
 
+let capacityCheckSeq = 0;
+let capacityCheckTimer = null;
+
 function updateCapacityHint() {
   const inputEl = document.getElementById('input-data');
   const hint = document.getElementById('capacity-hint');
   if (!inputEl || !hint) return;
 
-  const byteLen = new TextEncoder().encode(inputEl.value.trim()).length;
+  const input = inputEl.value.trim();
+  const byteLen = new TextEncoder().encode(input).length;
   const maxBytes = estimateCapacityBytes();
   const pct = maxBytes ? Math.min(999, Math.round((byteLen / maxBytes) * 100)) : 0;
-  const over = byteLen > maxBytes;
+  const approxOver = byteLen > maxBytes;
 
-  hint.classList.toggle('over', over);
-  hint.textContent = `${over ? t('capacityOver') : t('capacityOk')}: ${byteLen} / ${maxBytes} bytes (${t('approx')} ${pct}%)`;
+  hint.classList.toggle('over', approxOver);
+  hint.textContent = `${approxOver ? t('capacityOver') : t('capacityOk')}: ${byteLen} / ${maxBytes} bytes (${t('approx')} ${pct}%)`;
+
+  const seq = ++capacityCheckSeq;
+  window.clearTimeout(capacityCheckTimer);
+  if (!input) return;
+  capacityCheckTimer = window.setTimeout(async () => {
+    try {
+      const analysis = await analyzeCurrentCapacity(input);
+      if (seq !== capacityCheckSeq) return;
+      renderCapacityAnalysis(analysis);
+    } catch {
+      // Keep the approximate hint if the lazy exact check fails.
+    }
+  }, 220);
+}
+
+async function analyzeCurrentCapacity(input = document.getElementById('input-data').value.trim()) {
+  const { analyzeEncodeCapacity } = await loadEncoderModule();
+  return analyzeEncodeCapacity(input, getEncodeOptions());
+}
+
+function renderCapacityAnalysis(analysis) {
+  const hint = document.getElementById('capacity-hint');
+  if (!hint) return;
+
+  hint.classList.toggle('over', !analysis.ok);
+  if (analysis.ok) {
+    hint.textContent = `${t('capacityOk')}: ${analysis.byteLen} bytes · ${t('exactOk')} · QR V${analysis.worstVersion || '-'} · ${t('errorLevelShort')} ${analysis.effectiveErrorLevel}`;
+    return;
+  }
+
+  hint.textContent = `${t('capacityOver')}: ${analysis.byteLen} bytes · ${t('exactFail')} · ${buildCapacitySuggestionText()}`;
+}
+
+function buildCapacitySuggestionText() {
+  const suggestions = [];
+  if (currentIcon) suggestions.push(t('suggestRemoveIcon'));
+  if (getEffectiveErrorLevel() !== 'L') suggestions.push(t('suggestLowerError'));
+  suggestions.push(t('suggestShorten'));
+  if (!isSafeUrlOrDeepLink(document.getElementById('input-data').value.trim())) suggestions.push(t('suggestUseUrl'));
+  return `${t('suggestions')}: ${suggestions.join(' / ')}`;
 }
 
 function setDecodedText(value = '') {
@@ -250,18 +294,77 @@ function renderUrlOrDeepLink(output, value) {
   link.textContent = url;
   link.target = '_blank';
   link.rel = 'noopener noreferrer';
+  link.addEventListener('click', async (event) => {
+    event.preventDefault();
+    await confirmAndOpenExternalUrl(url);
+  });
 
   const button = document.createElement('button');
   button.type = 'button';
   button.textContent = t('openLinkOrApp');
   button.addEventListener('click', () => {
-    window.location.href = url;
+    confirmAndOpenExternalUrl(url);
   });
 
   wrap.appendChild(link);
   wrap.appendChild(button);
   output.appendChild(wrap);
   updateCopyButton();
+}
+
+let pendingExternalUrl = '';
+
+async function confirmAndOpenExternalUrl(url) {
+  const ok = await showExternalLinkConfirm(url);
+  if (ok) {
+    window.location.href = url;
+  }
+}
+
+function showExternalLinkConfirm(url) {
+  const modal = document.getElementById('external-link-modal');
+  if (!modal) return Promise.resolve(window.confirm(url));
+
+  const info = getExternalUrlInfo(url);
+  pendingExternalUrl = info.raw;
+  document.getElementById('external-link-message').textContent = info.isWeb ? t('externalWebMessage') : t('externalAppMessage');
+  document.getElementById('external-link-scheme').textContent = info.scheme;
+  document.getElementById('external-link-host').textContent = info.host || info.pathname || info.raw;
+  document.getElementById('external-link-warning').textContent = info.isKnownExternal ? t('externalKnownWarning') : t('externalUnknownWarning');
+
+  const fallbackRow = document.getElementById('external-link-fallback-row');
+  const fallback = document.getElementById('external-link-fallback');
+  fallbackRow.hidden = !info.fallbackUrl;
+  fallback.textContent = info.fallbackUrl || '';
+
+  modal.hidden = false;
+
+  return new Promise((resolve) => {
+    const cancel = document.getElementById('external-link-cancel');
+    const confirm = document.getElementById('external-link-confirm');
+
+    const cleanup = (value) => {
+      modal.hidden = true;
+      cancel.removeEventListener('click', onCancel);
+      confirm.removeEventListener('click', onConfirm);
+      modal.removeEventListener('click', onBackdrop);
+      document.removeEventListener('keydown', onKeydown);
+      resolve(value);
+    };
+    const onCancel = () => cleanup(false);
+    const onConfirm = () => cleanup(pendingExternalUrl === info.raw);
+    const onBackdrop = (event) => {
+      if (event.target === modal) cleanup(false);
+    };
+    const onKeydown = (event) => {
+      if (event.key === 'Escape') cleanup(false);
+    };
+
+    cancel.addEventListener('click', onCancel);
+    confirm.addEventListener('click', onConfirm);
+    modal.addEventListener('click', onBackdrop);
+    document.addEventListener('keydown', onKeydown);
+  });
 }
 
 document.getElementById('lang-switch').addEventListener('click', () => {
@@ -395,7 +498,14 @@ btnEncode.addEventListener('click', async () => {
   btnSingle.classList.remove('active');
 
   try {
-    const { encodeToCubeCode } = await loadEncoderModule();
+    const { encodeToCubeCode, analyzeEncodeCapacity } = await loadEncoderModule();
+    const analysis = analyzeEncodeCapacity(input, getEncodeOptions());
+    renderCapacityAnalysis(analysis);
+    if (!analysis.ok) {
+      output.innerHTML = `${t('capacityOver')}: ${t('exactFail')}<br>${buildCapacitySuggestionText()}`;
+      return;
+    }
+
     const results = await encodeToCubeCode(input, getEncodeOptions());
     output.innerHTML = '';
 

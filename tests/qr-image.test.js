@@ -8,6 +8,7 @@ import {
   FACE_COLORS_INVERTED,
   FACE_COLORS_INVERTED_COLORFUL,
   GENE_QR_COLORS,
+  analyzeEncodeCapacity,
   detectDataType,
 } from '../src/encoder.js';
 import { bytesToBase64 } from '../src/encoder-utils.js';
@@ -185,6 +186,17 @@ describe('real QR image scanning', () => {
       icon: true,
     }));
     expect(decoded).toMatchObject({ success: true, data: 'icon-safe QR' });
+  });
+
+
+  it('uses qrcode actual generation to reject over-capacity input', () => {
+    const small = analyzeEncodeCapacity('short text', { errorLevel: 'M' });
+    expect(small.ok).toBe(true);
+    expect(small.worstVersion).toBeGreaterThan(0);
+
+    const huge = analyzeEncodeCapacity('文'.repeat(20000), { errorLevel: 'H', icon: true });
+    expect(huge.ok).toBe(false);
+    expect(huge.failures.length).toBeGreaterThan(0);
   });
 
   it('keeps every configured color palette scannable', () => {

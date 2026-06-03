@@ -151,6 +151,24 @@
     </section>
   </main>
 
+
+  <div id="external-link-modal" class="modal-backdrop" hidden>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="external-link-title">
+      <h2 id="external-link-title" data-i18n="externalLinkTitle">打开外部链接？</h2>
+      <p id="external-link-message" class="modal-message"></p>
+      <dl class="link-detail-list">
+        <div><dt data-i18n="linkScheme">协议</dt><dd id="external-link-scheme"></dd></div>
+        <div><dt data-i18n="linkHost">目标</dt><dd id="external-link-host"></dd></div>
+        <div id="external-link-fallback-row" hidden><dt data-i18n="linkFallback">Fallback</dt><dd id="external-link-fallback"></dd></div>
+      </dl>
+      <p id="external-link-warning" class="modal-warning"></p>
+      <div class="modal-actions">
+        <button id="external-link-cancel" type="button" data-i18n="cancelOpen">取消</button>
+        <button id="external-link-confirm" type="button" data-i18n="confirmOpen">确认打开</button>
+      </div>
+    </div>
+  </div>
+
   <script type="module" src="/src/main.js"></script>
 </body>
 </html>

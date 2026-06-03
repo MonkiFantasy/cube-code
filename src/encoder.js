@@ -48,6 +48,63 @@ const GENE_QR_COLORS = {
   blue: { dark: '#0F766E', light: '#ffffff' },
 };
 
+
+export function analyzeEncodeCapacity(data, { icon = null, numFaces = 6, independent = false, errorLevel = 'M' } = {}) {
+  const encoder = new TextEncoder();
+  const dataBytes = encoder.encode(data);
+  const effectiveErrorLevel = icon ? 'H' : errorLevel;
+
+  if (!data) {
+    return {
+      ok: true,
+      byteLen: 0,
+      effectiveErrorLevel,
+      independent,
+      numFaces,
+      checkedQrCount: 0,
+      worstVersion: 0,
+      failures: [],
+    };
+  }
+
+  const qrPayloads = independent
+    ? Array.from({ length: numFaces }, () => data)
+    : buildProtocolQrPayloads(dataBytes, detectDataType(data), numFaces);
+
+  const checked = [];
+  const failures = [];
+
+  qrPayloads.forEach((qrData, index) => {
+    try {
+      const qr = QRCode.create(qrData, { errorCorrectionLevel: effectiveErrorLevel });
+      checked.push({ faceId: index + 1, version: qr.version, length: new TextEncoder().encode(qrData).length });
+    } catch (err) {
+      failures.push({ faceId: index + 1, error: err?.message || String(err) });
+    }
+  });
+
+  return {
+    ok: failures.length === 0,
+    byteLen: dataBytes.length,
+    effectiveErrorLevel,
+    independent,
+    numFaces,
+    checkedQrCount: qrPayloads.length,
+    worstVersion: checked.reduce((max, item) => Math.max(max, item.version), 0),
+    failures,
+  };
+}
+
+function buildProtocolQrPayloads(dataBytes, dataType, numFaces) {
+  const versionByte = new Uint8Array([PROTOCOL_VERSION]);
+  const typeByte = new Uint8Array([dataType]);
+  const crc = crc16(dataBytes);
+  const crcBytes = new Uint8Array([crc >> 8, crc & 0xFF]);
+  const fullPayload = concatBytes([versionByte, typeByte, dataBytes, crcBytes]);
+  const chunks = splitData(fullPayload, numFaces);
+  return chunks.map((chunk, index) => bytesToBase64(buildFacePayload(index, chunk)));
+}
+
 /**
  * Encode data into QR code canvases with Rubik's cube colors.
  * Returns an array of { faceId, canvas } objects.

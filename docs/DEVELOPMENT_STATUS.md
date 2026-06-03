@@ -17,7 +17,7 @@
 ### 编码
 
 - 文本魔方码编码。
-- URL/Deep Link 魔方码编码：支持普通 Web URL、`mailto:`, `tel:`, `myapp://...`, `intent://...` 等安全 scheme，解码后显示为可点击链接和“打开链接/应用”按钮。
+- URL/Deep Link 魔方码编码：支持普通 Web URL、`mailto:`, `tel:`, `myapp://...`, `intent://...` 等安全 scheme，解码后显示为可点击链接和“打开链接/应用”按钮；打开前会显示外部链接确认弹窗、scheme/host 和 intent fallback。
 - 普通模式固定 6 面分片。
 - 面 payload：3-bit face ID + 13-bit chunk length + data chunk。
 - 完整 payload：version + data type + content + CRC16。
@@ -25,7 +25,7 @@
 - 中心图标叠加。
 - 独立模式：生成普通二维码，支持 1–6 个使用面。
 - 独立模式空面图片。
-- 容量实时提示（近似值）。
+- 容量实时提示：先显示近似值，再用 `qrcode` 实际生成能力做精确可生成检查；编码前也会预检查并给出超容量建议。
 
 ### 展示
 
@@ -65,21 +65,21 @@
 
 - `tests/utils.test.js`：底层工具函数。
 - `tests/decoder.test.js`：重组、乱序、缺面、CRC 篡改、Unicode。
-- `tests/qr-image.test.js`：真实 QR 图像经 jsQR 解码、普通二维码上传路径、URL/deep link、中心图标、全部颜色方案扫描性。
+- `tests/qr-image.test.js`：真实 QR 图像经 jsQR 解码、普通二维码上传路径、URL/deep link、中心图标、全部颜色方案扫描性、实际容量检查。
+- `tests/url-utils.test.js`：URL/Deep Link 安全判断和 intent fallback 解析。
 
 ## 未实现 / 待开发
 
 ### 协议类型
 
 - `0x01 = binary` 未实现。
-- `0x02 = URL` 已基础实现，含 app deep link 跳转；仍未实现危险链接二次确认、scheme 白名单配置和更细的 URL 类型 UX。
+- `0x02 = URL` 已实现基础编码/解码、app deep link 跳转和打开前确认；仍未实现可配置 scheme 白名单。
 - 二进制文件上传、分片、还原下载未实现。
 
 ### 容量管理
 
-- 当前容量提示是近似值，基于 QR V40 byte capacity 和 base64 膨胀估算。
-- 未根据 qrcode 库实际版本选择结果做精确容量反馈。
-- 未对超长输入提供更详细的降级建议。
+- 容量提示已加入 `qrcode` 实际生成检查和超容量建议。
+- 仍未给出精确“剩余可输入字节数”。
 
 ### 扫描能力
 
