@@ -4,6 +4,7 @@ import { DATA_TYPE_URL, decodeCubeCode } from './decoder.js';
 import { renderCrossNet, downloadCrossNet } from './crossnet.js';
 import { t, toggleLang } from './i18n/index.js';
 import { getExternalUrlInfo, isSafeUrlOrDeepLink } from './url-utils.js';
+import { replaceScannedPayloadBatch, resetScannedPayloads } from './scan-state.js';
 
 let encoderModulePromise = null;
 let cube3dModulePromise = null;
@@ -963,11 +964,13 @@ fileInput.addEventListener('change', (e) => {
     const result = scanCrossNet(canvas);
 
     if (result.found > 0) {
-      for (const [faceId, payload] of result.payloads) {
-        if (!scannedPayloads.some((p) => extractFaceId(p) === faceId)) {
-          scannedPayloads.push(payload);
-        }
-      }
+      // Uploading an image is treated as a fresh batch scan. Otherwise a second
+      // uploaded net with the same face ids would be deduplicated against the
+      // previous result and the decoded text would appear stuck until users
+      // manually press "重新扫描". Camera scanning still keeps incremental
+      // one-face-at-a-time behavior.
+      resetScanState({ resetScanner: false });
+      replaceScannedPayloadBatch(scannedPayloads, result.payloads);
       updateScanCount();
 
       // Auto-decode if all faces found
@@ -990,12 +993,16 @@ fileInput.addEventListener('change', (e) => {
 
 // Decode button
 btnReset.addEventListener('click', () => {
-  scannedPayloads.length = 0;
+  resetScanState();
+});
+
+function resetScanState({ resetScanner = true } = {}) {
+  resetScannedPayloads(scannedPayloads);
   document.getElementById('scan-count').textContent = `0 / ${numFaces}`;
   clearDecodedOutput();
   document.querySelectorAll('.face-dot').forEach((d) => d.classList.remove('scanned'));
-  if (scanner) { scanner.reset(); }
-});
+  if (resetScanner && scanner) { scanner.reset(); }
+}
 
 btnDecode.addEventListener('click', () => {
   const output = document.getElementById('decoded-output');
