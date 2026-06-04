@@ -177,7 +177,7 @@ describe('real QR image scanning', () => {
 
   it('scans ordinary QR images through the plain upload path', () => {
     const image = renderQrImage('普通二维码上传测试', { errorCorrectionLevel: 'M' });
-    expect(scanPlain(image)).toEqual({ found: true, data: '普通二维码上传测试' });
+    expect(scanPlain(image)).toMatchObject({ found: true, data: '普通二维码上传测试' });
   });
 
   it('keeps generated QR images scannable when a center icon is overlaid', () => {

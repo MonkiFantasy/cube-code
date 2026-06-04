@@ -2,7 +2,7 @@ import { defineConfig } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
 import fs from 'fs';
 
-const httpsConfig = fs.existsSync('.certs/key.pem')
+const httpsConfig = !process.env.NO_HTTPS && fs.existsSync('.certs/key.pem')
   ? {
       key: fs.readFileSync('.certs/key.pem'),
       cert: fs.readFileSync('.certs/cert.pem'),
@@ -14,8 +14,8 @@ export default defineConfig({
   base: basePath,
   plugins: [
     VitePWA({
-      registerType: 'autoUpdate',
-      injectRegister: 'auto',
+      registerType: 'prompt',
+      injectRegister: null,
       manifestFilename: 'manifest.json',
       includeAssets: ['icon-192.png', 'icon-512.png'],
       manifest: {
@@ -92,5 +92,6 @@ export default defineConfig({
   },
   test: {
     globals: true,
+    exclude: ['node_modules/**', 'dist/**', 'e2e/**', 'test-results/**'],
   },
 });

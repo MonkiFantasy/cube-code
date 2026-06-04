@@ -1,3 +1,4 @@
+import { registerSW } from 'virtual:pwa-register';
 import { DATA_TYPE_URL, decodeCubeCode } from './decoder.js';
 import { renderCrossNet, downloadCrossNet } from './crossnet.js';
 import { t, toggleLang } from './i18n/index.js';
@@ -334,7 +335,9 @@ function showExternalLinkConfirm(url) {
 
   const fallbackRow = document.getElementById('external-link-fallback-row');
   const fallback = document.getElementById('external-link-fallback');
+  const fallbackButton = document.getElementById('external-link-fallback-open');
   fallbackRow.hidden = !info.fallbackUrl;
+  fallbackButton.hidden = !info.fallbackUrl;
   fallback.textContent = info.fallbackUrl || '';
 
   modal.hidden = false;
@@ -342,17 +345,25 @@ function showExternalLinkConfirm(url) {
   return new Promise((resolve) => {
     const cancel = document.getElementById('external-link-cancel');
     const confirm = document.getElementById('external-link-confirm');
+    const fallbackButton = document.getElementById('external-link-fallback-open');
 
     const cleanup = (value) => {
       modal.hidden = true;
       cancel.removeEventListener('click', onCancel);
       confirm.removeEventListener('click', onConfirm);
+      fallbackButton.removeEventListener('click', onFallback);
       modal.removeEventListener('click', onBackdrop);
       document.removeEventListener('keydown', onKeydown);
       resolve(value);
     };
     const onCancel = () => cleanup(false);
     const onConfirm = () => cleanup(pendingExternalUrl === info.raw);
+    const onFallback = () => {
+      if (info.fallbackUrl) {
+        window.location.href = info.fallbackUrl;
+        cleanup(false);
+      }
+    };
     const onBackdrop = (event) => {
       if (event.target === modal) cleanup(false);
     };
@@ -362,9 +373,56 @@ function showExternalLinkConfirm(url) {
 
     cancel.addEventListener('click', onCancel);
     confirm.addEventListener('click', onConfirm);
+    fallbackButton.addEventListener('click', onFallback);
     modal.addEventListener('click', onBackdrop);
     document.addEventListener('keydown', onKeydown);
   });
+}
+
+
+let applyServiceWorkerUpdate = null;
+
+const updateSW = registerSW({
+  immediate: true,
+  onNeedRefresh() {
+    showPwaUpdatePrompt();
+  },
+  onOfflineReady() {
+    showToast(t('offlineReady'), 'success');
+  },
+  onRegisteredSW(_swUrl, registration) {
+    if (registration) {
+      window.setInterval(() => registration.update(), 60 * 60 * 1000);
+    }
+  },
+  onRegisterError(error) {
+    console.warn('Service worker registration failed', error);
+  },
+});
+applyServiceWorkerUpdate = updateSW;
+
+function showPwaUpdatePrompt() {
+  const banner = document.getElementById('update-banner');
+  if (banner) banner.hidden = false;
+}
+
+function hidePwaUpdatePrompt() {
+  const banner = document.getElementById('update-banner');
+  if (banner) banner.hidden = true;
+}
+
+document.getElementById('update-refresh')?.addEventListener('click', () => {
+  if (applyServiceWorkerUpdate) applyServiceWorkerUpdate(true);
+});
+
+document.getElementById('update-dismiss')?.addEventListener('click', hidePwaUpdatePrompt);
+
+
+if (import.meta.env.DEV) {
+  window.__cubeCodeTestHooks = {
+    showPwaUpdatePrompt,
+    showExternalLinkConfirm,
+  };
 }
 
 document.getElementById('lang-switch').addEventListener('click', () => {
