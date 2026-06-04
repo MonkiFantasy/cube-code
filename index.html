@@ -20,6 +20,16 @@
     </div>
     <button id="offline-retry" type="button">重试</button>
   </div>
+
+  <div id="update-banner" class="update-banner" hidden>
+    <div class="update-orb" aria-hidden="true">✨</div>
+    <div>
+      <strong data-i18n="updateReadyTitle">发现新版本</strong>
+      <span data-i18n="updateReadyMessage">点击刷新，立即使用最新魔方码。</span>
+    </div>
+    <button id="update-refresh" type="button" data-i18n="updateRefresh">刷新</button>
+    <button id="update-dismiss" type="button" class="ghost" data-i18n="updateLater">稍后</button>
+  </div>
   <header>
     <h1 id="title">魔方码</h1>
     <p class="subtitle" id="subtitle">3D 二维码 — 6 倍数据容量</p>
@@ -73,6 +83,16 @@
         <button id="btn-save" data-i18n="saveImage">保存图片</button>
         <details class="toolbar-more">
           <summary data-i18n="displayOptions">外观/高级</summary>
+          <label class="net-layout-selector">
+            <span data-i18n="netLayout">展开图</span>
+            <select id="net-layout">
+              <option value="classic" data-i18n="netClassic">经典十字</option>
+              <option value="windmill" data-i18n="netWindmill">风车</option>
+              <option value="stair" data-i18n="netStair">阶梯</option>
+              <option value="snake" data-i18n="netSnake">蛇形</option>
+              <option value="tower" data-i18n="netTower">塔式</option>
+            </select>
+          </label>
           <button id="btn-color-mode" data-i18n="modeColorful">炫彩</button>
           <button id="btn-icon" data-i18n="addIcon">添加图标</button>
           <button id="btn-empty-face" data-i18n="emptyFaceImage" style="display:none">空面图片</button>
@@ -80,7 +100,7 @@
           <div id="gene-color-picker" class="gene-color-picker" style="display:none">
             <button class="gene-color-btn active" data-color="purple" style="--gene-color:#7C2DFF" title="贪（紫色）">贪</button>
             <button class="gene-color-btn" data-color="red" style="--gene-color:#E7352A" title="嗔（红色）">嗔</button>
-            <button class="gene-color-btn" data-color="blue" style="--gene-color:#14B8A6" title="痴（蓝绿色）">痴</button>
+            <button class="gene-color-btn" data-color="blue" style="--gene-color:#0F766E" title="痴（蓝绿色）">痴</button>
           </div>
         </details>
       </div>
@@ -111,9 +131,13 @@
     </section>
 
     <section id="decode" class="tab-content">
-      <div class="toolbar">
+      <div class="decode-mode-switch" role="group" aria-label="扫码模式">
+        <button id="btn-cube-mode" class="active" type="button" data-i18n="cubeQrScan">魔方码扫描</button>
+        <button id="btn-plain-mode" type="button" data-i18n="plainQrScan">普通二维码</button>
+      </div>
+      <p id="decode-mode-hint" class="mode-hint">魔方码需要扫齐各面后重组；普通二维码扫到即显示。</p>
+      <div class="toolbar decode-actions">
         <button id="btn-scan-mode" data-i18n="quickScan">快速扫描</button>
-        <button id="btn-plain-mode" data-i18n="plainQrScan">普通二维码</button>
         <button id="btn-upload" data-i18n="uploadImage">上传图片</button>
       </div>
       <input type="file" id="file-input" accept="image/*" style="display:none">
@@ -129,9 +153,35 @@
       </div>
       <button id="btn-decode">重组数据</button>
       <button id="btn-reset" data-i18n="resetScan" style="margin-top:0.4rem;padding:0.5rem;width:100%;border:1px solid #ccc;background:#fff;border-radius:4px;cursor:pointer;font-size:0.9rem">重新扫描</button>
-      <div id="decoded-output"></div>
+      <div class="decoded-card">
+        <div id="decoded-output"></div>
+        <button id="btn-copy-output" class="copy-output" type="button" data-i18n="copyResult" hidden>复制结果</button>
+      </div>
+      <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
     </section>
   </main>
+  <footer class="app-footer">
+    <button id="app-version" class="version-pill" type="button" title="版本信息"></button>
+  </footer>
+
+
+  <div id="external-link-modal" class="modal-backdrop" hidden>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="external-link-title">
+      <h2 id="external-link-title" data-i18n="externalLinkTitle">打开外部链接？</h2>
+      <p id="external-link-message" class="modal-message"></p>
+      <dl class="link-detail-list">
+        <div><dt data-i18n="linkScheme">协议</dt><dd id="external-link-scheme"></dd></div>
+        <div><dt data-i18n="linkHost">目标</dt><dd id="external-link-host"></dd></div>
+        <div id="external-link-fallback-row" hidden><dt data-i18n="linkFallback">Fallback</dt><dd id="external-link-fallback"></dd></div>
+      </dl>
+      <p id="external-link-warning" class="modal-warning"></p>
+      <div class="modal-actions">
+        <button id="external-link-cancel" type="button" data-i18n="cancelOpen">取消</button>
+        <button id="external-link-fallback-open" type="button" data-i18n="openFallback" hidden>打开备用网页</button>
+        <button id="external-link-confirm" type="button" data-i18n="confirmOpen">确认打开</button>
+      </div>
+    </div>
+  </div>
 
   <script type="module" src="/src/main.js"></script>
 </body>

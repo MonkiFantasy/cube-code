@@ -1,4 +1,33 @@
-import * as THREE from 'three';
+import {
+  ACESFilmicToneMapping,
+  AdditiveBlending,
+  AmbientLight,
+  BoxGeometry,
+  CanvasTexture,
+  ClampToEdgeWrapping,
+  Color,
+  DirectionalLight,
+  DoubleSide,
+  EdgesGeometry,
+  Group,
+  LineBasicMaterial,
+  LineSegments,
+  Mesh,
+  MeshBasicMaterial,
+  MeshPhysicalMaterial,
+  MeshStandardMaterial,
+  NearestFilter,
+  PerspectiveCamera,
+  PlaneGeometry,
+  PMREMGenerator,
+  PointLight,
+  Scene,
+  Sprite,
+  SpriteMaterial,
+  SRGBColorSpace,
+  Vector3,
+  WebGLRenderer,
+} from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
@@ -11,7 +40,7 @@ const FACE_TO_BOX = [4, 5, 2, 3, 0, 1];
 export const GENE_COLORS = [
   { name: 'purple', color: '#7C2DFF', label: '贪' },  // 紫色 = 贪
   { name: 'red', color: '#E7352A', label: '嗔' },     // 红色 = 嗔
-  { name: 'blue', color: '#14B8A6', label: '痴' },    // 蓝绿色 = 痴
+  { name: 'blue', color: '#0F766E', label: '痴' },    // 蓝绿色 = 痴
 ];
 
 /**
@@ -27,29 +56,29 @@ export function createCube(container, qrCanvases, { materialMode = 'standard', g
   const width = container.clientWidth;
   const height = container.clientWidth;
 
-  const scene = new THREE.Scene();
+  const scene = new Scene();
   scene.background = materialMode === 'gene'
-    ? new THREE.Color(0x05060c)
-    : new THREE.Color(0xf5f5f5);
+    ? new Color(0x05060c)
+    : new Color(0xf5f5f5);
 
   // Add environment map for glass/gene reflections
   let pmremGenerator = null;
   let envRenderer = null;
   if (materialMode === 'glass' || materialMode === 'gene') {
-    envRenderer = new THREE.WebGLRenderer({ antialias: true });
-    pmremGenerator = new THREE.PMREMGenerator(envRenderer);
+    envRenderer = new WebGLRenderer({ antialias: true });
+    pmremGenerator = new PMREMGenerator(envRenderer);
     const envTexture = pmremGenerator.fromScene(new RoomEnvironment()).texture;
     scene.environment = envTexture;
   }
 
-  const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 100);
+  const camera = new PerspectiveCamera(45, width / height, 0.1, 100);
   camera.position.set(2.5, 2, 2.5);
 
-  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  const renderer = new WebGLRenderer({ antialias: true, alpha: true });
   renderer.setSize(width, height);
   renderer.setPixelRatio(window.devicePixelRatio);
-  renderer.outputColorSpace = THREE.SRGBColorSpace;
-  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.outputColorSpace = SRGBColorSpace;
+  renderer.toneMapping = ACESFilmicToneMapping;
   renderer.toneMappingExposure = materialMode === 'gene' ? 1.65 : 1.0;
   container.appendChild(renderer.domElement);
 
@@ -69,12 +98,12 @@ export function createCube(container, qrCanvases, { materialMode = 'standard', g
   // Face camera targets. Moving the camera position works reliably with
   // OrbitControls; setting camera.rotation directly is overwritten by controls.
   const SNAP_POSITIONS = {
-    front: new THREE.Vector3(0, 0, 4.0),      // +Z face
-    back: new THREE.Vector3(0, 0, -4.0),      // -Z face
-    top: new THREE.Vector3(0, 4.0, 0.001),    // +Y face
-    bottom: new THREE.Vector3(0, -4.0, 0.001), // -Y face
-    left: new THREE.Vector3(-4.0, 0, 0),      // -X face
-    right: new THREE.Vector3(4.0, 0, 0),      // +X face
+    front: new Vector3(0, 0, 4.0),      // +Z face
+    back: new Vector3(0, 0, -4.0),      // -Z face
+    top: new Vector3(0, 4.0, 0.001),    // +Y face
+    bottom: new Vector3(0, -4.0, 0.001), // -Y face
+    left: new Vector3(-4.0, 0, 0),      // -X face
+    right: new Vector3(4.0, 0, 0),      // +X face
   };
 
   function snapToFace(faceName) {
@@ -105,22 +134,22 @@ export function createCube(container, qrCanvases, { materialMode = 'standard', g
     }
   }
 
-  const ambient = new THREE.AmbientLight(0xffffff, materialMode === 'gene' ? 0.22 : 0.8);
+  const ambient = new AmbientLight(0xffffff, materialMode === 'gene' ? 0.22 : 0.8);
   scene.add(ambient);
-  const dirLight = new THREE.DirectionalLight(0xffffff, materialMode === 'gene' ? 0.95 : 0.5);
+  const dirLight = new DirectionalLight(0xffffff, materialMode === 'gene' ? 0.95 : 0.5);
   dirLight.position.set(5, 5, 5);
   scene.add(dirLight);
   if (materialMode === 'gene') {
-    const rimLight = new THREE.DirectionalLight(0x9bbcff, 1.45);
+    const rimLight = new DirectionalLight(0x9bbcff, 1.45);
     rimLight.position.set(-4, 3, -5);
     scene.add(rimLight);
-    const warmKeyLight = new THREE.DirectionalLight(0xffd1b8, 0.75);
+    const warmKeyLight = new DirectionalLight(0xffd1b8, 0.75);
     warmKeyLight.position.set(3.5, -2, 4);
     scene.add(warmKeyLight);
   }
 
   // Create main group
-  const mainGroup = new THREE.Group();
+  const mainGroup = new Group();
 
   let cube, cubeGroup;
 
@@ -130,13 +159,13 @@ export function createCube(container, qrCanvases, { materialMode = 'standard', g
     mainGroup.add(cubeGroup);
   } else {
     // Standard/Glass mode: solid cube with textures
-    const geometry = new THREE.BoxGeometry(1.8, 1.8, 1.8);
+    const geometry = new BoxGeometry(1.8, 1.8, 1.8);
     const materials = buildMaterials(qrCanvases, materialMode, geneColor);
-    cube = new THREE.Mesh(geometry, materials);
+    cube = new Mesh(geometry, materials);
     mainGroup.add(cube);
 
-    const edges = new THREE.EdgesGeometry(geometry, 30);
-    const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({
+    const edges = new EdgesGeometry(geometry, 30);
+    const line = new LineSegments(edges, new LineBasicMaterial({
       color: materialMode === 'glass' ? 0xffffff : 0x333333,
       transparent: true,
       opacity: materialMode === 'glass' ? 0.35 : 0.75,
@@ -199,13 +228,13 @@ export function createCube(container, qrCanvases, { materialMode = 'standard', g
  * Edge-to-edge connections remain as separate cubes
  */
 function createGeneCube(qrCanvases, geneColor) {
-  const group = new THREE.Group();
+  const group = new Group();
   const color = GENE_COLORS.find(c => c.name === geneColor)?.color || '#8B5CF6';
-  const glowColor = new THREE.Color(color);
+  const glowColor = new Color(color);
 
   // Gem/acrylic material inspired by the reference: saturated translucent
   // color, strong inner glow, glossy highlights and low roughness.
-  const moduleMaterial = new THREE.MeshPhysicalMaterial({
+  const moduleMaterial = new MeshPhysicalMaterial({
     color,
     emissive: glowColor,
     emissiveIntensity: 0.46,
@@ -246,7 +275,7 @@ function createGeneCube(qrCanvases, geneColor) {
     return moduleGeometries.get(key);
   };
 
-  const baseMaterial = new THREE.MeshPhysicalMaterial({
+  const baseMaterial = new MeshPhysicalMaterial({
     color,
     emissive: glowColor,
     emissiveIntensity: 0.16,
@@ -282,7 +311,7 @@ function createGeneCube(qrCanvases, geneColor) {
     // past the mathematical cube edge. Adjacent faces overlap slightly at their
     // own boundaries, so the cube is sealed by the face pixels themselves instead
     // of by an added outside frame.
-    const baseGeometry = new THREE.BoxGeometry(
+    const baseGeometry = new BoxGeometry(
       tileSize + edgeWrap * 2,
       tileSize + edgeWrap * 2,
       baseDepth,
@@ -306,13 +335,13 @@ function createGeneCube(qrCanvases, geneColor) {
         // while the actual dark QR modules rise above it as relief blocks.
         const x = (col - numModules / 2) * module3DSize + module3DSize / 2;
         const y = (row - numModules / 2) * module3DSize + module3DSize / 2;
-        const baseMesh = new THREE.Mesh(baseGeometry, baseMaterial);
+        const baseMesh = new Mesh(baseGeometry, baseMaterial);
         positionGeneTile(baseMesh, boxIdx, x, y, halfSize + baseDepth / 2);
         group.add(baseMesh);
 
         // Foreground modules are part of the QR code relief.
         if (isModule) {
-          const mesh = new THREE.Mesh(getRaisedGeometry(row, col, numModules, tileSize, module3DSize, edgeWrap), moduleMaterial);
+          const mesh = new Mesh(getRaisedGeometry(row, col, numModules, tileSize, module3DSize, edgeWrap), moduleMaterial);
           positionGeneTile(mesh, boxIdx, x, y, halfSize + baseDepth + depth / 2);
           group.add(mesh);
         }
@@ -323,10 +352,10 @@ function createGeneCube(qrCanvases, geneColor) {
   // Add local internal lights for a premium acrylic/neon glow.
   // Keep the light concentrated inside the material instead of drawing a
   // visible full-ball halo around the cube.
-  const pointLight = new THREE.PointLight(color, 4.2, 3.4, 1.7);
+  const pointLight = new PointLight(color, 4.2, 3.4, 1.7);
   pointLight.position.set(0, 0, 0);
   group.add(pointLight);
-  const topLight = new THREE.PointLight(0xffffff, 1.15, 2.8, 2);
+  const topLight = new PointLight(0xffffff, 1.15, 2.8, 2);
   topLight.position.set(0.42, 0.55, 0.36);
   group.add(topLight);
   addGeneEnergyGlows(group, color);
@@ -345,12 +374,12 @@ function addGeneEnergyGlows(group, color) {
   ];
 
   for (const [x, y, z, scale, opacity] of sparkPositions) {
-    const sprite = new THREE.Sprite(new THREE.SpriteMaterial({
+    const sprite = new Sprite(new SpriteMaterial({
       map: glowTexture,
       color,
       transparent: true,
       opacity,
-      blending: THREE.AdditiveBlending,
+      blending: AdditiveBlending,
       depthWrite: false,
       depthTest: false,
     }));
@@ -359,13 +388,13 @@ function addGeneEnergyGlows(group, color) {
     group.add(sprite);
   }
 
-  const beamMaterial = new THREE.MeshBasicMaterial({
+  const beamMaterial = new MeshBasicMaterial({
     color,
     transparent: true,
     opacity: 0.18,
-    blending: THREE.AdditiveBlending,
+    blending: AdditiveBlending,
     depthWrite: false,
-    side: THREE.DoubleSide,
+    side: DoubleSide,
   });
   const beams = [
     { position: [-1.04, 0.18, 0.82], rotation: [0.25, 0.1, -0.64], length: 1.35, width: 0.025 },
@@ -374,8 +403,8 @@ function addGeneEnergyGlows(group, color) {
   ];
 
   for (const beam of beams) {
-    const geometry = new THREE.PlaneGeometry(beam.width, beam.length);
-    const mesh = new THREE.Mesh(geometry, beamMaterial);
+    const geometry = new PlaneGeometry(beam.width, beam.length);
+    const mesh = new Mesh(geometry, beamMaterial);
     mesh.position.set(...beam.position);
     mesh.rotation.set(...beam.rotation);
     group.add(mesh);
@@ -394,8 +423,8 @@ function createGlowTexture(color) {
   gradient.addColorStop(1, `${color}00`);
   ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, 128, 128);
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.colorSpace = THREE.SRGBColorSpace;
+  const texture = new CanvasTexture(canvas);
+  texture.colorSpace = SRGBColorSpace;
   return texture;
 }
 
@@ -521,19 +550,19 @@ function buildMaterials(qrCanvases, materialMode = 'standard') {
   const raw = [];
   for (let i = 0; i < 6; i++) {
     const canvas = qrCanvases[i] || createPlaceholderCanvas(i + 1);
-    const texture = new THREE.CanvasTexture(canvas);
-    texture.colorSpace = THREE.SRGBColorSpace;
-    texture.minFilter = THREE.NearestFilter;
-    texture.magFilter = THREE.NearestFilter;
-    texture.wrapS = THREE.ClampToEdgeWrapping;
-    texture.wrapT = THREE.ClampToEdgeWrapping;
+    const texture = new CanvasTexture(canvas);
+    texture.colorSpace = SRGBColorSpace;
+    texture.minFilter = NearestFilter;
+    texture.magFilter = NearestFilter;
+    texture.wrapS = ClampToEdgeWrapping;
+    texture.wrapT = ClampToEdgeWrapping;
     texture.generateMipmaps = false;
     texture.anisotropy = 1;
 
     if (materialMode === 'glass') {
       // Glass material with transparency and reflections
       raw.push(
-        new THREE.MeshPhysicalMaterial({
+        new MeshPhysicalMaterial({
           map: texture,
           transmission: 0.9,
           roughness: 0.1,
@@ -548,7 +577,7 @@ function buildMaterials(qrCanvases, materialMode = 'standard') {
     } else {
       // Standard material
       raw.push(
-        new THREE.MeshStandardMaterial({
+        new MeshStandardMaterial({
           map: texture,
           roughness: 0.5,
           metalness: 0.05,

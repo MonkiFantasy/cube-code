@@ -1,11 +1,34 @@
-import { encodeToCubeCode } from './encoder.js';
+/* global __APP_VERSION__, __APP_COMMIT__ */
+import { registerSW } from 'virtual:pwa-register';
 import { DATA_TYPE_URL, decodeCubeCode } from './decoder.js';
-import { startScanner } from './scanner.js';
-import { createCube } from './cube3d.js';
 import { renderCrossNet, downloadCrossNet } from './crossnet.js';
-import { scanCrossNet, scanPlain } from './quickscan.js';
 import { t, toggleLang } from './i18n/index.js';
-import { isSafeUrlOrDeepLink } from './url-utils.js';
+import { getExternalUrlInfo, isSafeUrlOrDeepLink } from './url-utils.js';
+
+let encoderModulePromise = null;
+let cube3dModulePromise = null;
+let scannerModulePromise = null;
+let quickscanModulePromise = null;
+
+function loadEncoderModule() {
+  encoderModulePromise ||= import('./encoder.js');
+  return encoderModulePromise;
+}
+
+function loadCube3dModule() {
+  cube3dModulePromise ||= import('./cube3d.js');
+  return cube3dModulePromise;
+}
+
+function loadScannerModule() {
+  scannerModulePromise ||= import('./scanner.js');
+  return scannerModulePromise;
+}
+
+function loadQuickscanModule() {
+  quickscanModulePromise ||= import('./quickscan.js');
+  return quickscanModulePromise;
+}
 
 let cube3d = null;
 let qrCanvases = [];
@@ -23,9 +46,11 @@ let currentIcon = null;
 let emptyFaceImage = null;
 let materialMode = 'standard';
 let geneColor = 'purple';
+let netLayout = 'classic';
 let numFaces = 6;
 let independentMode = false;
 let errorLevel = 'M';
+let decodedCopyText = '';
 
 // QR Code version 40 byte-mode capacities. The qrcode library chooses the
 // smallest version automatically up to V40; these values give a practical upper
@@ -65,6 +90,7 @@ async function reencodeCurrent() {
   const input = document.getElementById('input-data').value.trim();
   if (!input) return;
 
+  const { encodeToCubeCode } = await loadEncoderModule();
   const results = await encodeToCubeCode(input, getEncodeOptions());
   renderEncodedResults(results);
 
@@ -72,17 +98,28 @@ async function reencodeCurrent() {
     renderSingleFace();
   }
   if (showCross) {
-    renderCrossNet(crossContainer, qrCanvases, { mode: getEncodeOptions().mode });
+    renderCrossNet(crossContainer, qrCanvases, { mode: getEncodeOptions().mode, layout: netLayout });
   }
   if (cubeContainer.style.display !== 'none') {
     const cubeEl = document.getElementById('cube-3d');
     if (cube3d) cube3d.dispose();
     cubeEl.innerHTML = '';
+    const { createCube } = await loadCube3dModule();
     cube3d = createCube(cubeEl, qrCanvases, { materialMode, geneColor });
   }
 }
 
 // --- i18n ---
+
+function renderAppVersion() {
+  const el = document.getElementById('app-version');
+  if (!el) return;
+  const version = typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : '0.0.0';
+  const commit = typeof __APP_COMMIT__ === 'string' ? __APP_COMMIT__ : 'dev';
+  el.textContent = `v${version} · ${commit}`;
+  el.title = `${t('versionInfo')}: v${version} (${commit})`;
+}
+
 function applyLang() {
   document.getElementById('title').textContent = t('title');
   document.getElementById('subtitle').textContent = t('subtitle');
@@ -91,18 +128,20 @@ function applyLang() {
   document.getElementById('input-data').placeholder = t('inputPlaceholder');
   document.getElementById('btn-encode').textContent = t('btnEncode');
   document.getElementById('btn-decode').textContent = t('btnDecode');
+  document.getElementById('decode-mode-hint').textContent = plainScanMode ? t('plainModeHint') : t('cubeModeHint');
   document.getElementById('scan-label').textContent = t('scanned');
   document.getElementById('rotate-hint').textContent = t('rotateHint');
   document.getElementById('lang-switch').textContent = t('langSwitch');
   document.getElementById('btn-cross').textContent = showCross ? t('viewGrid') : t('viewCross');
   document.getElementById('btn-scan-mode').textContent = quickScanMode ? t('cameraMode') : t('quickScan');
-  document.getElementById('btn-plain-mode').textContent = plainScanMode ? t('cubeQrScan') : t('plainQrScan');
-  document.getElementById('quickscan-hint').textContent = t('quickScanHint');
+  document.getElementById('btn-cube-mode').textContent = t('cubeQrScan');
+  document.getElementById('btn-plain-mode').textContent = t('plainQrScan');
+  document.getElementById('quickscan-hint').textContent = plainScanMode ? t('plainModeHint') : t('quickScanHint');
   document.getElementById('btn-color-mode').textContent = t(COLOR_MODE_KEYS[colorMode]);
   document.getElementById('btn-single').textContent = t('viewSingle');
   document.getElementById('btn-icon').textContent = currentIcon ? t('removeIcon') : t('addIcon');
   document.getElementById('btn-material').textContent = t(MATERIAL_MODE_KEYS[materialMode]);
-  const dynamicIds = new Set(['btn-cross', 'btn-scan-mode', 'btn-plain-mode', 'btn-color-mode', 'btn-single', 'btn-icon', 'btn-material']);
+  const dynamicIds = new Set(['btn-cross', 'btn-scan-mode', 'btn-cube-mode', 'btn-plain-mode', 'btn-color-mode', 'btn-single', 'btn-icon', 'btn-material']);
   document.querySelectorAll('[data-i18n]').forEach((el) => {
     const key = el.dataset.i18n;
     if (key && !dynamicIds.has(el.id)) {
@@ -110,6 +149,7 @@ function applyLang() {
     }
   });
   document.documentElement.lang = t('langSwitch') === 'EN' ? 'zh-CN' : 'en';
+  renderAppVersion();
 }
 
 function getEffectiveErrorLevel() {
@@ -132,32 +172,118 @@ function estimateCapacityBytes() {
   return Math.max(0, perFaceChunkBytes * 6 - 4);
 }
 
+let capacityCheckSeq = 0;
+let capacityCheckTimer = null;
+
 function updateCapacityHint() {
   const inputEl = document.getElementById('input-data');
   const hint = document.getElementById('capacity-hint');
   if (!inputEl || !hint) return;
 
-  const byteLen = new TextEncoder().encode(inputEl.value.trim()).length;
+  const input = inputEl.value.trim();
+  const byteLen = new TextEncoder().encode(input).length;
   const maxBytes = estimateCapacityBytes();
   const pct = maxBytes ? Math.min(999, Math.round((byteLen / maxBytes) * 100)) : 0;
-  const over = byteLen > maxBytes;
+  const approxOver = byteLen > maxBytes;
 
-  hint.classList.toggle('over', over);
-  hint.textContent = `${over ? t('capacityOver') : t('capacityOk')}: ${byteLen} / ${maxBytes} bytes (${t('approx')} ${pct}%)`;
+  hint.classList.toggle('over', approxOver);
+  hint.textContent = `${approxOver ? t('capacityOver') : t('capacityOk')}: ${byteLen} / ${maxBytes} bytes (${t('approx')} ${pct}%)`;
+
+  const seq = ++capacityCheckSeq;
+  window.clearTimeout(capacityCheckTimer);
+  if (!input) return;
+  capacityCheckTimer = window.setTimeout(async () => {
+    try {
+      const analysis = await analyzeCurrentCapacity(input);
+      if (seq !== capacityCheckSeq) return;
+      renderCapacityAnalysis(analysis);
+    } catch {
+      // Keep the approximate hint if the lazy exact check fails.
+    }
+  }, 220);
+}
+
+async function analyzeCurrentCapacity(input = document.getElementById('input-data').value.trim()) {
+  const { analyzeEncodeCapacity } = await loadEncoderModule();
+  return analyzeEncodeCapacity(input, getEncodeOptions());
+}
+
+function renderCapacityAnalysis(analysis) {
+  const hint = document.getElementById('capacity-hint');
+  if (!hint) return;
+
+  hint.classList.toggle('over', !analysis.ok);
+  if (analysis.ok) {
+    hint.textContent = `${t('capacityOk')}: ${analysis.byteLen} bytes · ${t('exactOk')} · QR V${analysis.worstVersion || '-'} · ${t('errorLevelShort')} ${analysis.effectiveErrorLevel}`;
+    return;
+  }
+
+  hint.textContent = `${t('capacityOver')}: ${analysis.byteLen} bytes · ${t('exactFail')} · ${buildCapacitySuggestionText()}`;
+}
+
+function buildCapacitySuggestionText() {
+  const suggestions = [];
+  if (currentIcon) suggestions.push(t('suggestRemoveIcon'));
+  if (getEffectiveErrorLevel() !== 'L') suggestions.push(t('suggestLowerError'));
+  suggestions.push(t('suggestShorten'));
+  if (!isSafeUrlOrDeepLink(document.getElementById('input-data').value.trim())) suggestions.push(t('suggestUseUrl'));
+  return `${t('suggestions')}: ${suggestions.join(' / ')}`;
+}
+
+function setDecodedText(value = '') {
+  const output = document.getElementById('decoded-output');
+  decodedCopyText = String(value || '');
+  output.textContent = decodedCopyText;
+  updateCopyButton();
+}
+
+function clearDecodedOutput() {
+  const output = document.getElementById('decoded-output');
+  decodedCopyText = '';
+  output.textContent = '';
+  updateCopyButton();
+}
+
+function getDecodedPlainText() {
+  return decodedCopyText.trim();
+}
+
+function updateCopyButton() {
+  const copyButton = document.getElementById('btn-copy-output');
+  if (!copyButton) return;
+  copyButton.hidden = !getDecodedPlainText();
+}
+
+let toastTimer = null;
+function showToast(message, type = 'info') {
+  const toast = document.getElementById('toast');
+  if (!toast) return;
+  toast.textContent = message;
+  toast.className = `toast ${type}`;
+  toast.hidden = false;
+  window.clearTimeout(toastTimer);
+  toastTimer = window.setTimeout(() => {
+    toast.hidden = true;
+  }, 2200);
 }
 
 function renderDecodedOutput(output, decoded) {
+  decodedCopyText = '';
   output.textContent = '';
+  updateCopyButton();
 
   if (decoded?.dataType === DATA_TYPE_URL && isSafeUrlOrDeepLink(decoded.data)) {
     renderUrlOrDeepLink(output, decoded.data);
     return;
   }
 
-  output.textContent = decoded?.data ?? '';
+  decodedCopyText = decoded?.data ?? '';
+  output.textContent = decodedCopyText;
+  updateCopyButton();
 }
 
 function renderPlainQrOutput(output, data) {
+  decodedCopyText = '';
   output.textContent = '';
 
   if (isSafeUrlOrDeepLink(data)) {
@@ -165,11 +291,14 @@ function renderPlainQrOutput(output, data) {
     return;
   }
 
-  output.textContent = data;
+  decodedCopyText = String(data || '');
+  output.textContent = decodedCopyText;
+  updateCopyButton();
 }
 
 function renderUrlOrDeepLink(output, value) {
   const url = String(value || '').trim();
+  decodedCopyText = url;
   const wrap = document.createElement('div');
   wrap.className = 'decoded-url';
 
@@ -178,17 +307,134 @@ function renderUrlOrDeepLink(output, value) {
   link.textContent = url;
   link.target = '_blank';
   link.rel = 'noopener noreferrer';
+  link.addEventListener('click', async (event) => {
+    event.preventDefault();
+    await confirmAndOpenExternalUrl(url);
+  });
 
   const button = document.createElement('button');
   button.type = 'button';
   button.textContent = t('openLinkOrApp');
   button.addEventListener('click', () => {
-    window.location.href = url;
+    confirmAndOpenExternalUrl(url);
   });
 
   wrap.appendChild(link);
   wrap.appendChild(button);
   output.appendChild(wrap);
+  updateCopyButton();
+}
+
+let pendingExternalUrl = '';
+
+async function confirmAndOpenExternalUrl(url) {
+  const ok = await showExternalLinkConfirm(url);
+  if (ok) {
+    window.location.href = url;
+  }
+}
+
+function showExternalLinkConfirm(url) {
+  const modal = document.getElementById('external-link-modal');
+  if (!modal) return Promise.resolve(window.confirm(url));
+
+  const info = getExternalUrlInfo(url);
+  pendingExternalUrl = info.raw;
+  document.getElementById('external-link-message').textContent = info.isWeb ? t('externalWebMessage') : t('externalAppMessage');
+  document.getElementById('external-link-scheme').textContent = info.scheme;
+  document.getElementById('external-link-host').textContent = info.host || info.pathname || info.raw;
+  document.getElementById('external-link-warning').textContent = info.isKnownExternal ? t('externalKnownWarning') : t('externalUnknownWarning');
+
+  const fallbackRow = document.getElementById('external-link-fallback-row');
+  const fallback = document.getElementById('external-link-fallback');
+  const fallbackButton = document.getElementById('external-link-fallback-open');
+  fallbackRow.hidden = !info.fallbackUrl;
+  fallbackButton.hidden = !info.fallbackUrl;
+  fallback.textContent = info.fallbackUrl || '';
+
+  modal.hidden = false;
+
+  return new Promise((resolve) => {
+    const cancel = document.getElementById('external-link-cancel');
+    const confirm = document.getElementById('external-link-confirm');
+    const fallbackButton = document.getElementById('external-link-fallback-open');
+
+    const cleanup = (value) => {
+      modal.hidden = true;
+      cancel.removeEventListener('click', onCancel);
+      confirm.removeEventListener('click', onConfirm);
+      fallbackButton.removeEventListener('click', onFallback);
+      modal.removeEventListener('click', onBackdrop);
+      document.removeEventListener('keydown', onKeydown);
+      resolve(value);
+    };
+    const onCancel = () => cleanup(false);
+    const onConfirm = () => cleanup(pendingExternalUrl === info.raw);
+    const onFallback = () => {
+      if (info.fallbackUrl) {
+        window.location.href = info.fallbackUrl;
+        cleanup(false);
+      }
+    };
+    const onBackdrop = (event) => {
+      if (event.target === modal) cleanup(false);
+    };
+    const onKeydown = (event) => {
+      if (event.key === 'Escape') cleanup(false);
+    };
+
+    cancel.addEventListener('click', onCancel);
+    confirm.addEventListener('click', onConfirm);
+    fallbackButton.addEventListener('click', onFallback);
+    modal.addEventListener('click', onBackdrop);
+    document.addEventListener('keydown', onKeydown);
+  });
+}
+
+
+let applyServiceWorkerUpdate = null;
+
+const updateSW = registerSW({
+  immediate: true,
+  onNeedRefresh() {
+    showPwaUpdatePrompt();
+  },
+  onOfflineReady() {
+    showToast(t('offlineReady'), 'success');
+  },
+  onRegisteredSW(_swUrl, registration) {
+    if (registration) {
+      window.setInterval(() => registration.update(), 60 * 60 * 1000);
+    }
+  },
+  onRegisterError(error) {
+    console.warn('Service worker registration failed', error);
+  },
+});
+applyServiceWorkerUpdate = updateSW;
+
+function showPwaUpdatePrompt() {
+  const banner = document.getElementById('update-banner');
+  if (banner) banner.hidden = false;
+}
+
+function hidePwaUpdatePrompt() {
+  const banner = document.getElementById('update-banner');
+  if (banner) banner.hidden = true;
+}
+
+document.getElementById('update-refresh')?.addEventListener('click', () => {
+  if (applyServiceWorkerUpdate) applyServiceWorkerUpdate(true);
+});
+
+document.getElementById('update-dismiss')?.addEventListener('click', hidePwaUpdatePrompt);
+
+
+if (import.meta.env.DEV) {
+  window.__cubeCodeTestHooks = {
+    showPwaUpdatePrompt,
+    showExternalLinkConfirm,
+  };
 }
 
 document.getElementById('lang-switch').addEventListener('click', () => {
@@ -322,6 +568,14 @@ btnEncode.addEventListener('click', async () => {
   btnSingle.classList.remove('active');
 
   try {
+    const { encodeToCubeCode, analyzeEncodeCapacity } = await loadEncoderModule();
+    const analysis = analyzeEncodeCapacity(input, getEncodeOptions());
+    renderCapacityAnalysis(analysis);
+    if (!analysis.ok) {
+      output.innerHTML = `${t('capacityOver')}: ${t('exactFail')}<br>${buildCapacitySuggestionText()}`;
+      return;
+    }
+
     const results = await encodeToCubeCode(input, getEncodeOptions());
     output.innerHTML = '';
 
@@ -336,11 +590,12 @@ btnEncode.addEventListener('click', async () => {
 
     if (showCross) {
       crossContainer.style.display = 'block';
-      renderCrossNet(crossContainer, qrCanvases, { mode: getEncodeOptions().mode });
+      renderCrossNet(crossContainer, qrCanvases, { mode: getEncodeOptions().mode, layout: netLayout });
     } else {
       cubeContainer.style.display = 'block';
       const cubeEl = document.getElementById('cube-3d');
       cubeEl.innerHTML = '';
+      const { createCube } = await loadCube3dModule();
       cube3d = createCube(cubeEl, qrCanvases, { materialMode, geneColor });
     }
   } catch (err) {
@@ -397,7 +652,7 @@ btnNext.addEventListener('click', () => {
 });
 
 // Cross net toggle
-btnCross.addEventListener('click', () => {
+btnCross.addEventListener('click', async () => {
   showCross = !showCross;
   showSingle = false;
   btnSingle.classList.remove('active');
@@ -410,18 +665,27 @@ btnCross.addEventListener('click', () => {
     if (cube3d) { cube3d.dispose(); cube3d = null; }
     cubeContainer.style.display = 'none';
     crossContainer.style.display = 'block';
-    renderCrossNet(crossContainer, qrCanvases, { mode: getEncodeOptions().mode });
+    renderCrossNet(crossContainer, qrCanvases, { mode: getEncodeOptions().mode, layout: netLayout });
   } else {
     crossContainer.style.display = 'none';
     cubeContainer.style.display = 'block';
     const cubeEl = document.getElementById('cube-3d');
     cubeEl.innerHTML = '';
+    const { createCube } = await loadCube3dModule();
     cube3d = createCube(cubeEl, qrCanvases, { materialMode, geneColor });
   }
 });
 
 // Color mode toggle
 const btnColorMode = document.getElementById('btn-color-mode');
+const netLayoutSelect = document.getElementById('net-layout');
+netLayoutSelect.addEventListener('change', () => {
+  netLayout = netLayoutSelect.value;
+  if (showCross && qrCanvases.length > 0) {
+    renderCrossNet(crossContainer, qrCanvases, { mode: getEncodeOptions().mode, layout: netLayout });
+  }
+});
+
 btnColorMode.addEventListener('click', async () => {
   const idx = COLOR_MODES.indexOf(colorMode);
   colorMode = COLOR_MODES[(idx + 1) % COLOR_MODES.length];
@@ -551,7 +815,7 @@ if (geneColorPicker) {
 // Save cross net as image
 btnSave.addEventListener('click', () => {
   if (qrCanvases.length === 0) return;
-  downloadCrossNet(qrCanvases, getEncodeOptions().mode);
+  downloadCrossNet(qrCanvases, getEncodeOptions().mode, netLayout);
 });
 
 // --- Decode ---
@@ -568,6 +832,7 @@ for (let i = 1; i <= 6; i++) {
 }
 
 const btnDecode = document.getElementById('btn-decode');
+const btnCubeMode = document.getElementById('btn-cube-mode');
 const btnScanMode = document.getElementById('btn-scan-mode');
 const btnPlainMode = document.getElementById('btn-plain-mode');
 const btnUpload = document.getElementById('btn-upload');
@@ -575,19 +840,44 @@ const fileInput = document.getElementById('file-input');
 const decodeSection = document.getElementById('decode');
 const quickscanOverlay = document.getElementById('quickscan-overlay');
 const quickscanHint = document.getElementById('quickscan-hint');
+const scanStatus = document.getElementById('scan-status');
+const copyOutputButton = document.getElementById('btn-copy-output');
+const btnReset = document.getElementById('btn-reset');
+
+function setPlainScanMode(enabled) {
+  plainScanMode = enabled;
+  if (plainScanMode) {
+    quickScanMode = false;
+  }
+  updateDecodeModeUi();
+  clearDecodedOutput();
+  if (scanner) { scanner.stop(); scanner = null; }
+  startCamera(quickScanMode);
+}
+
+function updateDecodeModeUi() {
+  btnCubeMode.classList.toggle('active', !plainScanMode);
+  btnPlainMode.classList.toggle('active', plainScanMode);
+  btnScanMode.textContent = quickScanMode ? t('cameraMode') : t('quickScan');
+  btnScanMode.classList.toggle('active', quickScanMode);
+  btnScanMode.hidden = plainScanMode;
+  btnDecode.hidden = plainScanMode;
+  btnReset.hidden = plainScanMode;
+  scanStatus.hidden = plainScanMode;
+  quickscanOverlay.style.display = quickScanMode && !plainScanMode ? 'block' : 'none';
+  quickscanHint.style.display = quickScanMode || plainScanMode ? 'block' : 'none';
+  quickscanHint.textContent = plainScanMode ? t('plainModeHint') : t('quickScanHint');
+  document.getElementById('decode-mode-hint').textContent = plainScanMode ? t('plainModeHint') : t('cubeModeHint');
+}
+
+btnCubeMode.addEventListener('click', () => {
+  if (plainScanMode) setPlainScanMode(false);
+});
 
 // Quick scan mode toggle
 btnScanMode.addEventListener('click', () => {
-  if (plainScanMode) {
-    plainScanMode = false;
-    btnPlainMode.textContent = t('plainQrScan');
-    btnPlainMode.classList.remove('active');
-  }
   quickScanMode = !quickScanMode;
-  btnScanMode.textContent = quickScanMode ? t('cameraMode') : t('quickScan');
-  btnScanMode.classList.toggle('active', quickScanMode);
-  quickscanOverlay.style.display = quickScanMode ? 'block' : 'none';
-  quickscanHint.style.display = quickScanMode ? 'block' : 'none';
+  updateDecodeModeUi();
 
   // Restart scanner with new mode
   if (scanner) { scanner.stop(); scanner = null; }
@@ -596,22 +886,21 @@ btnScanMode.addEventListener('click', () => {
 
 // Plain QR mode: scan ordinary QR codes and display raw text directly.
 btnPlainMode.addEventListener('click', () => {
-  plainScanMode = !plainScanMode;
-  btnPlainMode.textContent = plainScanMode ? t('cubeQrScan') : t('plainQrScan');
-  btnPlainMode.classList.toggle('active', plainScanMode);
-
-  if (plainScanMode) {
-    quickScanMode = false;
-    btnScanMode.textContent = t('quickScan');
-    btnScanMode.classList.remove('active');
-    quickscanOverlay.style.display = 'none';
-    quickscanHint.style.display = 'none';
-    document.getElementById('decoded-output').textContent = '';
-  }
-
-  if (scanner) { scanner.stop(); scanner = null; }
-  startCamera(quickScanMode);
+  if (!plainScanMode) setPlainScanMode(true);
 });
+
+copyOutputButton.addEventListener('click', async () => {
+  const text = getDecodedPlainText();
+  if (!text) return;
+  try {
+    await navigator.clipboard.writeText(text);
+    showToast(t('copied'), 'success');
+  } catch {
+    showToast(t('copyFailed'), 'error');
+  }
+});
+
+updateDecodeModeUi();
 
 // Upload image for scanning
 btnUpload.addEventListener('click', () => fileInput.click());
@@ -621,7 +910,7 @@ fileInput.addEventListener('change', (e) => {
   if (!file) return;
 
   const img = new Image();
-  img.onload = () => {
+  img.onload = async () => {
     const canvas = document.createElement('canvas');
     canvas.width = img.naturalWidth;
     canvas.height = img.naturalHeight;
@@ -631,16 +920,18 @@ fileInput.addEventListener('change', (e) => {
     const output = document.getElementById('decoded-output');
 
     if (plainScanMode) {
+      const { scanPlain } = await loadQuickscanModule();
       const result = scanPlain(canvas);
       if (result.found) {
         renderPlainQrOutput(output, result.data);
       } else {
-        output.textContent = t('noFaces');
+        setDecodedText(t('plainQrNotFound'));
       }
       fileInput.value = '';
       return;
     }
 
+    const { scanCrossNet } = await loadQuickscanModule();
     const result = scanCrossNet(canvas);
 
     if (result.found > 0) {
@@ -658,10 +949,10 @@ fileInput.addEventListener('change', (e) => {
           renderDecodedOutput(output, decoded);
         }
       } else {
-        output.textContent = '';
+        clearDecodedOutput();
       }
     } else {
-      output.textContent = t('noFaces');
+      setDecodedText(t('noFaces'));
     }
 
     fileInput.value = '';
@@ -670,12 +961,10 @@ fileInput.addEventListener('change', (e) => {
 });
 
 // Decode button
-const btnReset = document.getElementById('btn-reset');
-
 btnReset.addEventListener('click', () => {
   scannedPayloads.length = 0;
-  document.getElementById('scan-count').textContent = '0';
-  document.getElementById('decoded-output').textContent = '';
+  document.getElementById('scan-count').textContent = `0 / ${numFaces}`;
+  clearDecodedOutput();
   document.querySelectorAll('.face-dot').forEach((d) => d.classList.remove('scanned'));
   if (scanner) { scanner.reset(); }
 });
@@ -684,7 +973,7 @@ btnDecode.addEventListener('click', () => {
   const output = document.getElementById('decoded-output');
 
   if (scannedPayloads.length === 0) {
-    output.textContent = t('noFaces');
+    setDecodedText(t('noFaces'));
     return;
   }
 
@@ -693,9 +982,9 @@ btnDecode.addEventListener('click', () => {
   if (decoded.success) {
     renderDecodedOutput(output, decoded);
   } else if (decoded.missingFaces.length > 0) {
-    output.textContent = `${t('missingFaces')}: ${decoded.missingFaces.join(', ')}`;
+    setDecodedText(`${t('missingFaces')}: ${decoded.missingFaces.join(', ')}`);
   } else {
-    output.textContent = `${t('error')}: ${decoded.error}`;
+    setDecodedText(`${t('error')}: ${decoded.error}`);
   }
 });
 
@@ -711,6 +1000,7 @@ async function startCamera(quick = false) {
   const canvas = document.getElementById('scan-canvas');
 
   try {
+    const { startScanner } = await loadScannerModule();
     scanner = startScanner(video, canvas, (_payloadBytes, faceId) => {
       if (plainScanMode) {
         renderPlainQrOutput(document.getElementById('decoded-output'), _payloadBytes);
@@ -732,7 +1022,7 @@ async function startCamera(quick = false) {
       }
     }, { quick, plain: plainScanMode });
   } catch (err) {
-    document.getElementById('scan-status').textContent = `${t('cameraError')}: ${err.message}`;
+    showToast(`${t('cameraError')}: ${err.message}`, 'error');
   }
 }
 
