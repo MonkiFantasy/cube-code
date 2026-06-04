@@ -647,7 +647,17 @@ function renderSingleFace() {
   btnNext.disabled = singleFaceIdx === qrCanvases.length - 1;
 }
 
-btnSingle.addEventListener('click', () => {
+async function renderCubeView() {
+  if (qrCanvases.length === 0) return;
+  if (cube3d) { cube3d.dispose(); cube3d = null; }
+  cubeContainer.style.display = 'block';
+  const cubeEl = document.getElementById('cube-3d');
+  cubeEl.innerHTML = '';
+  const { createCube } = await loadCube3dModule();
+  cube3d = createCube(cubeEl, qrCanvases, { materialMode, geneColor });
+}
+
+btnSingle.addEventListener('click', async () => {
   showSingle = !showSingle;
   btnSingle.classList.toggle('active', showSingle);
 
@@ -667,7 +677,7 @@ btnSingle.addEventListener('click', () => {
     if (showCross) {
       crossContainer.style.display = 'block';
     } else {
-      cubeContainer.style.display = 'block';
+      await renderCubeView();
     }
   }
 });
@@ -697,11 +707,7 @@ btnCross.addEventListener('click', async () => {
     renderCrossNet(crossContainer, qrCanvases, { mode: getEncodeOptions().mode, layout: netLayout });
   } else {
     crossContainer.style.display = 'none';
-    cubeContainer.style.display = 'block';
-    const cubeEl = document.getElementById('cube-3d');
-    cubeEl.innerHTML = '';
-    const { createCube } = await loadCube3dModule();
-    cube3d = createCube(cubeEl, qrCanvases, { materialMode, geneColor });
+    await renderCubeView();
   }
 });
 
@@ -880,7 +886,7 @@ function setPlainScanMode(enabled) {
   }
   updateDecodeModeUi();
   clearDecodedOutput();
-  if (scanner) { scanner.stop(); scanner = null; }
+  stopCamera();
   startCamera(quickScanMode);
 }
 
@@ -909,7 +915,7 @@ btnScanMode.addEventListener('click', () => {
   updateDecodeModeUi();
 
   // Restart scanner with new mode
-  if (scanner) { scanner.stop(); scanner = null; }
+  stopCamera();
   startCamera(quickScanMode);
 });
 
@@ -1024,19 +1030,35 @@ btnDecode.addEventListener('click', () => {
 });
 
 const observer = new MutationObserver(() => {
-  if (decodeSection.classList.contains('active') && !scanner) {
-    startCamera(quickScanMode);
+  if (decodeSection.classList.contains('active')) {
+    if (!scanner) startCamera(quickScanMode);
+  } else {
+    stopCamera();
   }
 });
 observer.observe(decodeSection, { attributes: true, attributeFilter: ['class'] });
 
+let scannerStartToken = 0;
+
+function stopCamera() {
+  scannerStartToken += 1;
+  if (scanner) {
+    scanner.stop();
+    scanner = null;
+  }
+}
+
 async function startCamera(quick = false) {
+  const token = scannerStartToken + 1;
+  scannerStartToken = token;
   const video = document.getElementById('camera-feed');
   const canvas = document.getElementById('scan-canvas');
 
   try {
     const { startScanner } = await loadScannerModule();
-    scanner = startScanner(video, canvas, (_payloadBytes, faceId) => {
+    if (token !== scannerStartToken || !decodeSection.classList.contains('active')) return;
+
+    const nextScanner = startScanner(video, canvas, (_payloadBytes, faceId) => {
       if (plainScanMode) {
         renderPlainQrOutput(document.getElementById('decoded-output'), _payloadBytes);
         return;
@@ -1056,8 +1078,16 @@ async function startCamera(quick = false) {
         }
       }
     }, { quick, plain: plainScanMode });
+
+    if (token !== scannerStartToken || !decodeSection.classList.contains('active')) {
+      nextScanner.stop();
+      return;
+    }
+    scanner = nextScanner;
   } catch (err) {
-    showToast(`${t('cameraError')}: ${err.message}`, 'error');
+    if (token === scannerStartToken && decodeSection.classList.contains('active')) {
+      showToast(`${t('cameraError')}: ${err.message}`, 'error');
+    }
   }
 }
 

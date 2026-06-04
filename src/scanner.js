@@ -19,11 +19,24 @@ export function startScanner(videoEl, canvasEl, onScan, opts = {}) {
   const seenFaces = new Set(); // tracks faceIds already found
 
   async function init() {
-    stream = await navigator.mediaDevices.getUserMedia({
+    const mediaStream = await navigator.mediaDevices.getUserMedia({
       video: { facingMode: 'environment', width: 640, height: 480 },
     });
+
+    if (!scanning) {
+      mediaStream.getTracks().forEach((t) => t.stop());
+      return;
+    }
+
+    stream = mediaStream;
     videoEl.srcObject = stream;
     await videoEl.play();
+
+    if (!scanning) {
+      stream.getTracks().forEach((t) => t.stop());
+      return;
+    }
+
     canvasEl.width = videoEl.videoWidth || 640;
     canvasEl.height = videoEl.videoHeight || 480;
     tick();
