@@ -1428,3 +1428,21 @@ button#btn-decode:hover,
     font-size: 0.75rem;
   }
 }
+
+.app-footer {
+  display: flex;
+  justify-content: center;
+  padding: 0.9rem 0 0.2rem;
+}
+
+.version-pill {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.36rem 0.7rem;
+  color: var(--muted);
+  background: rgba(255,255,255,0.66);
+  box-shadow: 0 8px 18px rgba(15,23,42,0.06);
+  font-size: 0.76rem;
+  font-weight: 800;
+  cursor: default;
+}

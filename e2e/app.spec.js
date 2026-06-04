@@ -35,3 +35,9 @@ test('PWA update prompt can be shown and dismissed', async ({ page }) => {
   await page.getByRole('button', { name: '稍后' }).click({ force: true });
   await expect(page.locator('#update-banner')).toBeHidden();
 });
+
+
+test('shows app version and build hash', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('#app-version')).toContainText('v0.1.0');
+});

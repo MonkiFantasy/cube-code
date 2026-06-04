@@ -38,6 +38,7 @@ export default {
   updateRefresh: '刷新',
   updateLater: '稍后',
   offlineReady: '已可离线使用',
+  versionInfo: '版本信息',
   approx: '约',
   btnEncode: '生成魔方码',
   btnDecode: '重组数据',

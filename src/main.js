@@ -1,3 +1,4 @@
+/* global __APP_VERSION__, __APP_COMMIT__ */
 import { registerSW } from 'virtual:pwa-register';
 import { DATA_TYPE_URL, decodeCubeCode } from './decoder.js';
 import { renderCrossNet, downloadCrossNet } from './crossnet.js';
@@ -109,6 +110,16 @@ async function reencodeCurrent() {
 }
 
 // --- i18n ---
+
+function renderAppVersion() {
+  const el = document.getElementById('app-version');
+  if (!el) return;
+  const version = typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : '0.0.0';
+  const commit = typeof __APP_COMMIT__ === 'string' ? __APP_COMMIT__ : 'dev';
+  el.textContent = `v${version} · ${commit}`;
+  el.title = `${t('versionInfo')}: v${version} (${commit})`;
+}
+
 function applyLang() {
   document.getElementById('title').textContent = t('title');
   document.getElementById('subtitle').textContent = t('subtitle');
@@ -138,6 +149,7 @@ function applyLang() {
     }
   });
   document.documentElement.lang = t('langSwitch') === 'EN' ? 'zh-CN' : 'en';
+  renderAppVersion();
 }
 
 function getEffectiveErrorLevel() {

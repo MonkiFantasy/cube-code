@@ -56,6 +56,7 @@
 - Workbox generateSW。
 - PWA 离线 fallback 页面：`public/offline.html`。
 - PWA 新版本提示条：发现新版本后可点击刷新更新。
+- 页面底部展示当前版本号和 Git 短 hash，方便确认 PWA 是否已更新到最新构建。
 - PWA 图标已重绘：`public/icon-192.png`, `public/icon-512.png`。
 - 应用内离线提示条：通过真实网络探测判断断网，断网时显示“离线魔方模式”（不再单纯依赖 `navigator.onLine`）。
 - Android Capacitor 项目存在。
@@ -68,7 +69,7 @@
 - `tests/decoder.test.js`：重组、乱序、缺面、CRC 篡改、Unicode。
 - `tests/qr-image.test.js`：真实 QR 图像经 jsQR 解码、普通二维码上传路径、URL/deep link、中心图标、全部颜色方案扫描性、实际容量检查。
 - `tests/url-utils.test.js`：URL/Deep Link 安全判断和 intent fallback 解析。
-- `e2e/app.spec.js`：Playwright UI 自动化，覆盖普通二维码模式、容量提示、URL/intent 弹窗、PWA 更新提示。
+- `e2e/app.spec.js`：Playwright UI 自动化，覆盖普通二维码模式、容量提示、URL/intent 弹窗、PWA 更新提示、版本号展示。
 
 ## 未实现 / 待开发
 

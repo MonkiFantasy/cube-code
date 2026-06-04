@@ -38,6 +38,7 @@ export default {
   updateRefresh: 'Refresh',
   updateLater: 'Later',
   offlineReady: 'Ready for offline use',
+  versionInfo: 'Version',
   approx: 'approx.',
   btnEncode: 'Generate Cube Code',
   btnDecode: 'Reassemble Data',
