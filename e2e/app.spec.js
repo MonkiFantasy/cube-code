@@ -41,3 +41,11 @@ test('shows app version and build hash', async ({ page }) => {
   await page.goto('/');
   await expect(page.locator('#app-version')).toContainText('v0.1.0');
 });
+
+
+test('offline banner is disabled in normal browser tab', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.evaluate(() => window.__cubeCodeTestHooks.shouldUsePwaOfflineBanner())).resolves.toBe(false);
+  await page.evaluate(() => window.dispatchEvent(new Event('offline')));
+  await expect(page.locator('#offline-banner')).toBeHidden();
+});

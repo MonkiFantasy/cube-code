@@ -434,6 +434,7 @@ if (import.meta.env.DEV) {
   window.__cubeCodeTestHooks = {
     showPwaUpdatePrompt,
     showExternalLinkConfirm,
+    shouldUsePwaOfflineBanner,
   };
 }
 
@@ -444,17 +445,44 @@ document.getElementById('lang-switch').addEventListener('click', () => {
 
 applyLang();
 updateCapacityHint();
-checkNetworkReachable();
+setupPwaOfflineBanner();
 
 document.getElementById('input-data').addEventListener('input', updateCapacityHint);
 
-window.addEventListener('online', () => checkNetworkReachable());
-window.addEventListener('offline', () => setOfflineState(true));
-document.getElementById('offline-retry')?.addEventListener('click', () => {
-  checkNetworkReachable({ reloadOnSuccess: true });
-});
+function setupPwaOfflineBanner() {
+  if (!shouldUsePwaOfflineBanner()) {
+    setOfflineState(false);
+    return;
+  }
 
-window.setInterval(() => checkNetworkReachable(), 15000);
+  checkNetworkReachable();
+  window.addEventListener('online', () => checkNetworkReachable());
+  window.addEventListener('offline', () => setOfflineState(true));
+  document.getElementById('offline-retry')?.addEventListener('click', () => {
+    checkNetworkReachable({ reloadOnSuccess: true });
+  });
+  window.setInterval(() => checkNetworkReachable(), 15000);
+}
+
+function shouldUsePwaOfflineBanner() {
+  // The in-app offline banner is only useful for an installed browser PWA.
+  // In Capacitor's Android WebView all assets are bundled locally; probing a
+  // fake network URL can fail on launch and incorrectly report "offline".
+  if (isCapacitorNativeShell()) return false;
+  return isInstalledPwa();
+}
+
+function isCapacitorNativeShell() {
+  return Boolean(window.Capacitor)
+    || window.location.protocol === 'capacitor:'
+    || window.location.protocol === 'ionic:';
+}
+
+function isInstalledPwa() {
+  return window.matchMedia?.('(display-mode: standalone)').matches
+    || window.matchMedia?.('(display-mode: fullscreen)').matches
+    || window.navigator.standalone === true;
+}
 
 function setOfflineState(isOffline) {
   const banner = document.getElementById('offline-banner');
