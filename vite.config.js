@@ -11,6 +11,10 @@ const httpsConfig = !process.env.NO_HTTPS && fs.existsSync('.certs/key.pem')
     }
   : undefined;
 const basePath = process.env.BASE_PATH || '/';
+const normalizedBase = basePath === '/'
+  ? 'root'
+  : basePath.replace(/^\/|\/$/g, '').replaceAll('/', '-') || 'root';
+const isDevPath = normalizedBase !== 'root';
 const gitCommit = (() => {
   try {
     return execSync('git rev-parse --short HEAD').toString().trim();
@@ -33,7 +37,7 @@ export default defineConfig({
       includeAssets: ['icon-192.png', 'icon-512.png'],
       manifest: {
         name: '魔方码 - 3D QR Code',
-        short_name: 'Cube Code',
+        short_name: isDevPath ? 'Cube Dev' : 'Cube Code',
         description: '3D QR code system - encode data across six faces of a cube',
         id: basePath,
         start_url: basePath,
@@ -65,14 +69,14 @@ export default defineConfig({
             urlPattern: ({ request }) => ['style', 'script', 'worker'].includes(request.destination),
             handler: 'StaleWhileRevalidate',
             options: {
-              cacheName: 'cube-code-assets',
+              cacheName: `cube-code-assets-${normalizedBase}`,
             },
           },
           {
             urlPattern: ({ request }) => request.destination === 'image',
             handler: 'CacheFirst',
             options: {
-              cacheName: 'cube-code-images',
+              cacheName: `cube-code-images-${normalizedBase}`,
             },
           },
         ],

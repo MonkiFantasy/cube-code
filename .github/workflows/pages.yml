@@ -1,0 +1,80 @@
+name: Deploy GitHub Pages
+
+on:
+  push:
+    branches: [main, dev]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build-pages:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name == 'main' && github.sha || 'main' }}
+          path: main-src
+
+      - name: Checkout dev source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name == 'dev' && github.sha || 'dev' }}
+          path: dev-src
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: |
+            main-src/package-lock.json
+            dev-src/package-lock.json
+
+      - name: Build main for root path
+        working-directory: main-src
+        run: |
+          npm ci
+          BASE_PATH=/ npm run build
+
+      - name: Build dev for /dev/ path
+        working-directory: dev-src
+        run: |
+          npm ci
+          BASE_PATH=/dev/ npm run build
+
+      - name: Compose Pages artifact
+        run: |
+          rm -rf pages-dist
+          mkdir -p pages-dist/dev
+          cp -a main-src/dist/. pages-dist/
+          cp -a dev-src/dist/. pages-dist/dev/
+          if [ -n "${{ vars.PAGES_CUSTOM_DOMAIN }}" ]; then
+            echo "${{ vars.PAGES_CUSTOM_DOMAIN }}" > pages-dist/CNAME
+          fi
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload GitHub Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: pages-dist/
+
+  deploy:
+    needs: build-pages
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
