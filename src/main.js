@@ -10,6 +10,7 @@ let encoderModulePromise = null;
 let cube3dModulePromise = null;
 let scannerModulePromise = null;
 let quickscanModulePromise = null;
+let stickerPackModulePromise = null;
 
 function loadEncoderModule() {
   encoderModulePromise ||= import('./encoder.js');
@@ -29,6 +30,11 @@ function loadScannerModule() {
 function loadQuickscanModule() {
   quickscanModulePromise ||= import('./quickscan.js');
   return quickscanModulePromise;
+}
+
+function loadStickerPackModule() {
+  stickerPackModulePromise ||= import('./sticker-pack.js');
+  return stickerPackModulePromise;
 }
 
 let cube3d = null;
@@ -573,6 +579,7 @@ document.querySelectorAll('.face-nav button').forEach((btn) => {
 const btnEncode = document.getElementById('btn-encode');
 const btnCross = document.getElementById('btn-cross');
 const btnSave = document.getElementById('btn-save');
+const btnStickerPack = document.getElementById('btn-sticker-pack');
 const btnSingle = document.getElementById('btn-single');
 const toolbar = document.getElementById('encode-toolbar');
 const cubeContainer = document.getElementById('cube-container');
@@ -851,6 +858,12 @@ if (geneColorPicker) {
 btnSave.addEventListener('click', () => {
   if (qrCanvases.length === 0) return;
   downloadCrossNet(qrCanvases, getEncodeOptions().mode, netLayout);
+});
+
+btnStickerPack.addEventListener('click', async () => {
+  if (qrCanvases.length === 0) return;
+  const { downloadStickerPack } = await loadStickerPackModule();
+  downloadStickerPack(qrCanvases);
 });
 
 // --- Decode ---

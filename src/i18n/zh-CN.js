@@ -62,6 +62,7 @@ export default {
   langSwitch: 'EN',
   viewCross: '十字展开图',
   viewGrid: '3D 视图',
+  stickerPack: '三阶魔方贴纸',
   saveImage: '保存图片',
   quickScan: '快速扫描',
   plainQrScan: '普通二维码',

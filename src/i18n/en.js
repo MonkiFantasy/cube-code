@@ -62,6 +62,7 @@ export default {
   langSwitch: '中文',
   viewCross: 'Cross Net',
   viewGrid: '3D View',
+  stickerPack: '3x3 Cube Stickers',
   saveImage: 'Save Image',
   quickScan: 'Quick Scan',
   plainQrScan: 'Plain QR',
