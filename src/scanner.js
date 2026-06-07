@@ -15,8 +15,8 @@ export function startScanner(videoEl, canvasEl, onScan, opts = {}) {
   let animId = null;
   let stream = null;
   let scanning = true;
-  const seen = new Set(); // tracks base64 strings already processed
-  const seenFaces = new Set(); // tracks faceIds already found
+  const seenAt = new Map(); // QR text -> last processed timestamp
+  const seenCooldownMs = opts.plain ? 1200 : 450;
 
   async function init() {
     const mediaStream = await navigator.mediaDevices.getUserMedia({
@@ -63,17 +63,7 @@ export function startScanner(videoEl, canvasEl, onScan, opts = {}) {
 
   function tryDecodeQR(imageData, w, h) {
     const code = jsQR(imageData.data, w, h);
-    if (code && code.data && !seen.has(code.data)) {
-      seen.add(code.data);
-      if (opts.plain) {
-        onScan(code.data, null);
-        return;
-      }
-      const result = decodePayload(code.data);
-      if (result) {
-        onScan(result.bytes, result.faceId);
-      }
-    }
+    handleDecodedCode(code);
   }
 
   function scanRegions(imageData, w, h) {
@@ -89,19 +79,35 @@ export function startScanner(videoEl, canvasEl, onScan, opts = {}) {
         const y = r * cellH;
         const regionData = extractRegion(imageData, x, y, cellW, cellH);
         const code = jsQR(regionData.data, cellW, cellH);
-        if (code && code.data && !seen.has(code.data)) {
-          seen.add(code.data);
-          if (opts.plain) {
-            onScan(code.data, null);
-            continue;
-          }
-          const result = decodePayload(code.data);
-          if (result) {
-            onScan(result.bytes, result.faceId);
-          }
-        }
+        handleDecodedCode(code);
       }
     }
+  }
+
+  function handleDecodedCode(code) {
+    if (!code?.data || isCoolingDown(code.data)) return;
+
+    if (opts.plain) {
+      onScan(code.data, null);
+      return;
+    }
+
+    const result = decodePayload(code.data);
+    if (result) {
+      onScan(result.bytes, result.faceId);
+    }
+  }
+
+  function isCoolingDown(data) {
+    const now = Date.now();
+    const lastSeen = seenAt.get(data) || 0;
+    if (now - lastSeen < seenCooldownMs) return true;
+    seenAt.set(data, now);
+
+    for (const [value, time] of seenAt) {
+      if (now - time > seenCooldownMs * 4) seenAt.delete(value);
+    }
+    return false;
   }
 
   function decodePayload(base64Str) {
@@ -109,8 +115,7 @@ export function startScanner(videoEl, canvasEl, onScan, opts = {}) {
       const bytes = base64ToBytes(base64Str);
       const bits = Array.from(bytes).map((b) => b.toString(2).padStart(8, '0')).join('');
       const faceId = parseInt(bits.slice(0, 3), 2);
-      if (faceId >= 1 && faceId <= 6 && !seenFaces.has(faceId)) {
-        seenFaces.add(faceId);
+      if (faceId >= 1 && faceId <= 6) {
         return { bytes, faceId };
       }
     } catch {
@@ -147,8 +152,7 @@ export function startScanner(videoEl, canvasEl, onScan, opts = {}) {
   return {
     stop,
     reset() {
-      seen.clear();
-      seenFaces.clear();
+      seenAt.clear();
     },
   };
 }

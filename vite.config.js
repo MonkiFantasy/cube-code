@@ -58,6 +58,7 @@ export default defineConfig({
       workbox: {
         cleanupOutdatedCaches: true,
         navigateFallback: 'index.html',
+        navigateFallbackDenylist: [/__network-check__/],
         globPatterns: ['**/*.{js,css,html,png,svg,ico,json}'],
         runtimeCaching: [
           {

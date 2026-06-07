@@ -76,7 +76,7 @@ export function createCube(container, qrCanvases, { materialMode = 'standard', g
 
   const renderer = new WebGLRenderer({ antialias: true, alpha: true });
   renderer.setSize(width, height);
-  renderer.setPixelRatio(window.devicePixelRatio);
+  renderer.setPixelRatio(getRendererPixelRatio(materialMode));
   renderer.outputColorSpace = SRGBColorSpace;
   renderer.toneMapping = ACESFilmicToneMapping;
   renderer.toneMappingExposure = materialMode === 'gene' ? 1.65 : 1.0;
@@ -196,11 +196,14 @@ export function createCube(container, qrCanvases, { materialMode = 'standard', g
     update(canvases) {
       qrCanvases = canvases;
       if (materialMode === 'gene') {
-        // Remove old gene cube group and create new one
+        // Remove old gene cube group and create new one. Dispose GPU resources
+        // explicitly because Three.js does not release removed objects for us.
         mainGroup.remove(cubeGroup);
+        disposeObject3D(cubeGroup);
         cubeGroup = createGeneCube(qrCanvases, geneColor);
         mainGroup.add(cubeGroup);
       } else if (cube) {
+        disposeMaterial(cube.material);
         cube.material = buildMaterials(qrCanvases, materialMode, geneColor);
       }
     },
@@ -214,12 +217,43 @@ export function createCube(container, qrCanvases, { materialMode = 'standard', g
       cancelAnimationFrame(animId);
       controls.dispose();
       window.removeEventListener('resize', onResize);
+      disposeObject3D(mainGroup);
       if (pmremGenerator) pmremGenerator.dispose();
       if (envRenderer) envRenderer.dispose();
       renderer.dispose();
-      container.removeChild(renderer.domElement);
+      if (renderer.domElement.parentNode === container) {
+        container.removeChild(renderer.domElement);
+      }
     },
   };
+}
+
+function getRendererPixelRatio(materialMode) {
+  const dpr = window.devicePixelRatio || 1;
+  // Gene mode uses many translucent 3D modules. Capping DPR reduces mobile GPU
+  // fill-rate pressure while keeping the visual crisp enough for preview.
+  return Math.min(dpr, materialMode === 'gene' ? 1.5 : 2);
+}
+
+function disposeObject3D(object) {
+  if (!object) return;
+  object.traverse?.((child) => {
+    if (child.geometry) child.geometry.dispose?.();
+    if (child.material) disposeMaterial(child.material);
+  });
+}
+
+function disposeMaterial(material) {
+  if (Array.isArray(material)) {
+    material.forEach(disposeMaterial);
+    return;
+  }
+  if (!material) return;
+
+  for (const value of Object.values(material)) {
+    if (value?.isTexture) value.dispose?.();
+  }
+  material.dispose?.();
 }
 
 /**

@@ -4,7 +4,7 @@ import { DATA_TYPE_URL, decodeCubeCode } from './decoder.js';
 import { renderCrossNet, downloadCrossNet } from './crossnet.js';
 import { t, toggleLang } from './i18n/index.js';
 import { getExternalUrlInfo, isSafeUrlOrDeepLink } from './url-utils.js';
-import { replaceScannedPayloadBatch, resetScannedPayloads } from './scan-state.js';
+import { extractFaceIdFromPayload, replaceScannedPayloadBatch, resetScannedPayloads, upsertScannedPayload } from './scan-state.js';
 
 let encoderModulePromise = null;
 let cube3dModulePromise = null;
@@ -885,7 +885,7 @@ function setPlainScanMode(enabled) {
     quickScanMode = false;
   }
   updateDecodeModeUi();
-  clearDecodedOutput();
+  resetScanState({ resetScanner: false });
   stopCamera();
   startCamera(quickScanMode);
 }
@@ -914,7 +914,8 @@ btnScanMode.addEventListener('click', () => {
   quickScanMode = !quickScanMode;
   updateDecodeModeUi();
 
-  // Restart scanner with new mode
+  // Restart scanner with new mode and avoid mixing faces from the previous mode.
+  resetScanState({ resetScanner: false });
   stopCamera();
   startCamera(quickScanMode);
 });
@@ -969,13 +970,17 @@ fileInput.addEventListener('change', (e) => {
     const { scanCrossNet } = await loadQuickscanModule();
     const result = scanCrossNet(canvas);
 
+    // Uploading an image is treated as a fresh batch scan, even if no face is
+    // found. Otherwise old scan dots/count can make a failed upload look like
+    // it contributed data.
+    resetScanState({ resetScanner: false });
+
     if (result.found > 0) {
       // Uploading an image is treated as a fresh batch scan. Otherwise a second
       // uploaded net with the same face ids would be deduplicated against the
       // previous result and the decoded text would appear stuck until users
       // manually press "重新扫描". Camera scanning still keeps incremental
       // one-face-at-a-time behavior.
-      resetScanState({ resetScanner: false });
       replaceScannedPayloadBatch(scannedPayloads, result.payloads);
       updateScanCount();
 
@@ -1064,17 +1069,18 @@ async function startCamera(quick = false) {
         return;
       }
 
-      // Deduplicate by faceId
-      if (!scannedPayloads.some((p) => extractFaceId(p) === faceId)) {
-        scannedPayloads.push(_payloadBytes);
-        updateScanCount();
+      const change = upsertScannedPayload(scannedPayloads, faceId, _payloadBytes);
+      if (change === 'unchanged') return;
 
-        // Auto-decode when all 6 faces found
-        if (scannedPayloads.length >= numFaces) {
-          const decoded = decodeCubeCode(scannedPayloads, numFaces);
-          if (decoded.success) {
-            renderDecodedOutput(document.getElementById('decoded-output'), decoded);
-          }
+      updateScanCount();
+
+      // Auto-decode when all 6 faces found
+      if (scannedPayloads.length >= numFaces) {
+        const decoded = decodeCubeCode(scannedPayloads, numFaces);
+        if (decoded.success) {
+          renderDecodedOutput(document.getElementById('decoded-output'), decoded);
+        } else if (change === 'replaced') {
+          clearDecodedOutput();
         }
       }
     }, { quick, plain: plainScanMode });
@@ -1094,16 +1100,10 @@ async function startCamera(quick = false) {
 function updateScanCount() {
   document.getElementById('scan-count').textContent = `${scannedPayloads.length} / ${numFaces}`;
 
+  document.querySelectorAll('.face-dot').forEach((d) => d.classList.remove('scanned'));
   for (const payload of scannedPayloads) {
-    const faceId = extractFaceId(payload);
+    const faceId = extractFaceIdFromPayload(payload);
     const dot = document.querySelector(`.face-dot[data-face="${faceId}"]`);
     if (dot) dot.classList.add('scanned');
   }
-}
-
-function extractFaceId(payloadBytes) {
-  const bits = Array.from(payloadBytes)
-    .map((b) => b.toString(2).padStart(8, '0'))
-    .join('');
-  return parseInt(bits.slice(0, 3), 2);
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { replaceScannedPayloadBatch, resetScannedPayloads } from '../src/scan-state.js';
+import { replaceScannedPayloadBatch, resetScannedPayloads, upsertScannedPayload } from '../src/scan-state.js';
 
 describe('scan state helpers', () => {
   it('replaces old uploaded scan payloads instead of merging with them', () => {
@@ -27,6 +27,17 @@ describe('scan state helpers', () => {
     ]);
 
     expect(scannedPayloads).toEqual([first]);
+  });
+
+  it('upserts a scanned face payload so a corrected same-face scan can replace stale data', () => {
+    const scannedPayloads = [];
+    const face1Old = new Uint8Array([0b00100000, 1]);
+    const face1New = new Uint8Array([0b00100000, 2]);
+
+    expect(upsertScannedPayload(scannedPayloads, 1, face1Old)).toBe('added');
+    expect(upsertScannedPayload(scannedPayloads, 1, face1Old)).toBe('unchanged');
+    expect(upsertScannedPayload(scannedPayloads, 1, face1New)).toBe('replaced');
+    expect(scannedPayloads).toEqual([face1New]);
   });
 
   it('clears payload state in place', () => {
