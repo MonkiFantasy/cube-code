@@ -29,7 +29,114 @@ export function scanCrossNet(source, { layout = 'auto' } = {}) {
     if (best.found === 6) break;
   }
 
+  // Sticker-pack exports are not cube nets: they are 6 printable faces laid out
+  // as 3 columns x 2 rows, and each face itself is split into 3x3 stickers with
+  // physical gaps. Try that layout as a fallback so uploading the generated
+  // sticker sheet can still recover the data before it is cut and pasted.
+  if (layout === 'auto' && best.found < 6) {
+    for (const variant of variants) {
+      const stickerResult = scanStickerPackImage(variant.imageData, variant.width, variant.height);
+      if (stickerResult.found > best.found) {
+        best = { ...stickerResult, variant: `sticker-${variant.name}` };
+      }
+      if (best.found === 6) break;
+    }
+  }
+
   return best;
+}
+
+export function scanStickerPack(source) {
+  const { imageData, width, height } = getImageData(source);
+  const variants = buildEnhancedVariants(imageData, width, height);
+  let best = { found: 0, payloads: new Map(), layout: 'sticker-pack', variant: 'original' };
+  for (const variant of variants) {
+    const result = scanStickerPackImage(variant.imageData, variant.width, variant.height);
+    if (result.found > best.found) best = { ...result, variant: variant.name };
+    if (best.found === 6) break;
+  }
+  return best;
+}
+
+
+function scanStickerPackImage(imageData, width, height) {
+  const payloads = new Map();
+  const cols = 3;
+  // Must match src/sticker-pack.js defaults. Ratios make the scanner robust to
+  // browser/image scaling of the downloaded PNG.
+  const totalWmm = 8 * 2 + 57 * 3 + 7 * 2;
+  const totalHmm = 8 * 2 + (57 + 7) * 2 + 7;
+  const marginX = width * (8 / totalWmm);
+  const marginY = height * (8 / totalHmm);
+  const faceW = width * (57 / totalWmm);
+  const faceH = height * (57 / totalHmm);
+  const spacingX = width * (7 / totalWmm);
+  const blockH = height * ((57 + 7) / totalHmm);
+  const spacingY = height * (7 / totalHmm);
+  const gapX = width * (1.2 / totalWmm);
+  const gapY = height * (1.2 / totalHmm);
+  const stickerW = (faceW - gapX * 2) / 3;
+  const stickerH = (faceH - gapY * 2) / 3;
+
+  for (let face = 0; face < 6; face++) {
+    const col = face % cols;
+    const row = Math.floor(face / cols);
+    const faceX = marginX + col * (faceW + spacingX);
+    const faceY = marginY + row * (blockH + spacingY);
+    const restored = restoreStickerFace(imageData, width, height, faceX, faceY, stickerW, stickerH, gapX, gapY);
+    const code = decodeQr(restored, restored.width, restored.height);
+    if (!code?.data) continue;
+    try {
+      const bytes = base64ToBytes(code.data);
+      const faceId = extractFaceId(bytes);
+      if (faceId >= 1 && faceId <= 6) payloads.set(faceId, bytes);
+    } catch {
+      // skip invalid QR
+    }
+  }
+
+  return { found: payloads.size, payloads, layout: 'sticker-pack' };
+}
+
+function restoreStickerFace(imageData, sourceW, sourceH, faceX, faceY, stickerW, stickerH, gapX, gapY) {
+  const outStickerW = Math.max(1, Math.round(stickerW));
+  const outStickerH = Math.max(1, Math.round(stickerH));
+  const outW = outStickerW * 3;
+  const outH = outStickerH * 3;
+  const out = new Uint8ClampedArray(outW * outH * 4);
+  out.fill(255);
+
+  for (let row = 0; row < 3; row++) {
+    for (let col = 0; col < 3; col++) {
+      // Crop a tiny border inside each printed sticker: export draws a visual
+      // border over the sticker edges, which should not become part of the QR
+      // when reconstructing the uncut original face.
+      const insetX = Math.max(1, stickerW * 0.012);
+      const insetY = Math.max(1, stickerH * 0.012);
+      const sx = faceX + col * (stickerW + gapX) + insetX;
+      const sy = faceY + row * (stickerH + gapY) + insetY;
+      const sw = Math.max(1, stickerW - insetX * 2);
+      const sh = Math.max(1, stickerH - insetY * 2);
+      resampleRegion(imageData.data, sourceW, sourceH, sx, sy, sw, sh, out, outW, col * outStickerW, row * outStickerH, outStickerW, outStickerH);
+    }
+  }
+
+  return new ImageData(out, outW, outH);
+}
+
+function resampleRegion(src, srcW, srcH, sx, sy, sw, sh, dst, dstW, dx, dy, dw, dh) {
+  for (let y = 0; y < dh; y++) {
+    for (let x = 0; x < dw; x++) {
+      const px = Math.min(srcW - 1, Math.max(0, Math.floor(sx + ((x + 0.5) / dw) * sw)));
+      const py = Math.min(srcH - 1, Math.max(0, Math.floor(sy + ((y + 0.5) / dh) * sh)));
+      const srcIdx = (py * srcW + px) * 4;
+      const dstIdx = ((dy + y) * dstW + dx + x) * 4;
+      dst[dstIdx] = src[srcIdx];
+      dst[dstIdx + 1] = src[srcIdx + 1];
+      dst[dstIdx + 2] = src[srcIdx + 2];
+      dst[dstIdx + 3] = src[srcIdx + 3] ?? 255;
+    }
+  }
 }
 
 function scanAutoNetLayout(imageData, width, height) {

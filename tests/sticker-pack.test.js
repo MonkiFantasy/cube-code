@@ -1,7 +1,7 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import QRCode from 'qrcode';
 import jsQR from 'jsqr';
-import { scanPlain } from '../src/quickscan.js';
+import { scanCrossNet, scanPlain } from '../src/quickscan.js';
 import { composeStickers, splitImageIntoStickers } from '../src/sticker-pack.js';
 import { DATA_TYPE_TEXT, decodeCubeCode } from '../src/decoder.js';
 import { bytesToBase64 } from '../src/encoder-utils.js';
@@ -87,6 +87,62 @@ function buildCubeQrImages(data) {
   });
 }
 
+
+function renderSyntheticStickerPack(images) {
+  const scale = 6;
+  const totalWmm = 197;
+  const totalHmm = 151;
+  const width = totalWmm * scale;
+  const height = totalHmm * scale;
+  const out = new Uint8ClampedArray(width * height * 4);
+  out.fill(255);
+  const marginX = 8 * scale;
+  const marginY = 8 * scale;
+  const faceW = 57 * scale;
+  const faceH = 57 * scale;
+  const spacingX = 7 * scale;
+  const blockH = 64 * scale;
+  const spacingY = 7 * scale;
+  const gap = Math.round(1.2 * scale);
+  const stickerW = Math.floor((faceW - gap * 2) / 3);
+  const stickerH = Math.floor((faceH - gap * 2) / 3);
+
+  images.forEach((image, face) => {
+    const faceCol = face % 3;
+    const faceRow = Math.floor(face / 3);
+    const faceX = marginX + faceCol * (faceW + spacingX);
+    const faceY = marginY + faceRow * (blockH + spacingY);
+    for (let row = 0; row < 3; row++) {
+      for (let col = 0; col < 3; col++) {
+        const sx = Math.floor((image.width * col) / 3);
+        const sy = Math.floor((image.height * row) / 3);
+        const sr = Math.floor((image.width * (col + 1)) / 3);
+        const sb = Math.floor((image.height * (row + 1)) / 3);
+        resampleInto(image, sx, sy, sr - sx, sb - sy, out, width, height, faceX + col * (stickerW + gap), faceY + row * (stickerH + gap), stickerW, stickerH);
+      }
+    }
+  });
+
+  return { data: out, width, height };
+}
+
+function resampleInto(srcImage, sx, sy, sw, sh, dst, dstW, dstH, dx, dy, dw, dh) {
+  for (let y = 0; y < dh; y++) {
+    for (let x = 0; x < dw; x++) {
+      const px = Math.min(srcImage.width - 1, Math.floor(sx + ((x + 0.5) / dw) * sw));
+      const py = Math.min(srcImage.height - 1, Math.floor(sy + ((y + 0.5) / dh) * sh));
+      const srcIdx = (py * srcImage.width + px) * 4;
+      const outX = Math.min(dstW - 1, Math.max(0, Math.floor(dx + x)));
+      const outY = Math.min(dstH - 1, Math.max(0, Math.floor(dy + y)));
+      const dstIdx = (outY * dstW + outX) * 4;
+      dst[dstIdx] = srcImage.data[srcIdx];
+      dst[dstIdx + 1] = srcImage.data[srcIdx + 1];
+      dst[dstIdx + 2] = srcImage.data[srcIdx + 2];
+      dst[dstIdx + 3] = 255;
+    }
+  }
+}
+
 describe('sticker-pack QR reconstruction', () => {
   it('splits one QR face into 3x3 stickers and restores a jsQR-readable image', () => {
     const text = 'cube unlock sticker face';
@@ -117,6 +173,19 @@ describe('sticker-pack QR reconstruction', () => {
     const restored = composeStickers(reversedCopy(stickers), { rows: 3, cols: 3 });
 
     expect(scanPlain(restored)).toMatchObject({ found: true, data: text });
+  });
+
+  it('scans an exported six-face sticker sheet through scanCrossNet fallback', () => {
+    const text = 'scan full printable sticker pack';
+    const sheet = renderSyntheticStickerPack(buildCubeQrImages(text));
+    const result = scanCrossNet(sheet);
+
+    expect(result).toMatchObject({ found: 6, layout: 'sticker-pack' });
+    expect(decodeCubeCode([...result.payloads.values()], 6)).toMatchObject({
+      success: true,
+      dataType: DATA_TYPE_TEXT,
+      data: text,
+    });
   });
 
   it('decodes a full six-face cube code after every face is cut into restored 3x3 stickers', () => {

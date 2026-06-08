@@ -45,8 +45,8 @@ let plainScanMode = false;
 let colorMode = 'colorful'; // 'colorful' | 'bw' | 'inverted' | 'inverted-colorful'
 const COLOR_MODES = ['colorful', 'bw', 'inverted', 'inverted-colorful'];
 const COLOR_MODE_KEYS = { colorful: 'modeColorful', bw: 'modeBW', inverted: 'modeInverted', 'inverted-colorful': 'modeInvertedColorful' };
-const MATERIAL_MODES = ['standard', 'glass', 'gene'];
-const MATERIAL_MODE_KEYS = { standard: 'standardMaterial', glass: 'glassMaterial', gene: 'geneMaterial' };
+const MATERIAL_MODES = ['standard', 'glass', 'rubik', 'gene'];
+const MATERIAL_MODE_KEYS = { standard: 'standardMaterial', glass: 'glassMaterial', rubik: 'rubikMaterial', gene: 'geneMaterial' };
 let singleFaceIdx = 0;
 let showSingle = false;
 let currentIcon = null;
@@ -113,6 +113,7 @@ async function reencodeCurrent() {
     cubeEl.innerHTML = '';
     const { createCube } = await loadCube3dModule();
     cube3d = createCube(cubeEl, qrCanvases, { materialMode, geneColor });
+      updateRubikControls();
   }
 }
 
@@ -589,6 +590,7 @@ const singleQr = document.getElementById('single-qr');
 const faceCounter = document.getElementById('face-counter');
 const btnPrev = document.getElementById('btn-prev');
 const btnNext = document.getElementById('btn-next');
+const rubikControls = document.getElementById('rubik-controls');
 
 btnEncode.addEventListener('click', async () => {
   const input = document.getElementById('input-data').value.trim();
@@ -597,6 +599,7 @@ btnEncode.addEventListener('click', async () => {
   const output = document.getElementById('qr-output');
   output.innerHTML = t('generating');
   cubeContainer.style.display = 'none';
+  updateRubikControls();
   crossContainer.style.display = 'none';
   singleContainer.style.display = 'none';
   toolbar.style.display = 'none';
@@ -621,6 +624,7 @@ btnEncode.addEventListener('click', async () => {
     }
 
     renderEncodedResults(results);
+    updateRubikControls();
 
     toolbar.style.display = 'flex';
 
@@ -640,6 +644,10 @@ btnEncode.addEventListener('click', async () => {
 });
 
 // Single face view
+function updateRubikControls() {
+  if (rubikControls) rubikControls.hidden = materialMode !== 'rubik' || qrCanvases.length === 0 || cubeContainer.style.display === 'none';
+}
+
 function renderSingleFace() {
   if (qrCanvases.length === 0) return;
   singleQr.innerHTML = '';
@@ -658,6 +666,7 @@ async function renderCubeView() {
   if (qrCanvases.length === 0) return;
   if (cube3d) { cube3d.dispose(); cube3d = null; }
   cubeContainer.style.display = 'block';
+  updateRubikControls();
   const cubeEl = document.getElementById('cube-3d');
   cubeEl.innerHTML = '';
   const { createCube } = await loadCube3dModule();
@@ -673,6 +682,7 @@ btnSingle.addEventListener('click', async () => {
     btnCross.classList.remove('active');
     if (cube3d) { cube3d.dispose(); cube3d = null; }
     cubeContainer.style.display = 'none';
+    updateRubikControls();
     crossContainer.style.display = 'none';
     singleContainer.style.display = 'flex';
     document.getElementById('qr-output').style.display = 'none';
@@ -710,6 +720,7 @@ btnCross.addEventListener('click', async () => {
   if (showCross) {
     if (cube3d) { cube3d.dispose(); cube3d = null; }
     cubeContainer.style.display = 'none';
+    updateRubikControls();
     crossContainer.style.display = 'block';
     renderCrossNet(crossContainer, qrCanvases, { mode: getEncodeOptions().mode, layout: netLayout });
   } else {
@@ -820,6 +831,7 @@ btnMaterial.addEventListener('click', async () => {
   materialMode = MATERIAL_MODES[(idx + 1) % MATERIAL_MODES.length];
   btnMaterial.textContent = t(MATERIAL_MODE_KEYS[materialMode]);
   btnMaterial.classList.toggle('active', materialMode !== 'standard');
+  updateRubikControls();
 
   // Show/hide gene color picker
   const geneColorPicker = document.getElementById('gene-color-picker');
@@ -855,6 +867,12 @@ if (geneColorPicker) {
 }
 
 // Save cross net as image
+rubikControls?.addEventListener('click', (event) => {
+  const button = event.target.closest('button[data-turn]');
+  if (!button || !cube3d?.twist) return;
+  cube3d.twist(button.dataset.turn);
+});
+
 btnSave.addEventListener('click', () => {
   if (qrCanvases.length === 0) return;
   downloadCrossNet(qrCanvases, getEncodeOptions().mode, netLayout);

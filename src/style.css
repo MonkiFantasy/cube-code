@@ -1446,3 +1446,29 @@ button#btn-decode:hover,
   font-weight: 800;
   cursor: default;
 }
+
+.rubik-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0.55rem auto 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.rubik-controls[hidden] {
+  display: none !important;
+}
+
+.rubik-controls button {
+  min-width: 2.25rem;
+  padding: 0.42rem 0.6rem;
+  border: 0;
+  border-radius: 999px;
+  background: #fff;
+  color: var(--primary-dark);
+  font-weight: 900;
+  box-shadow: 0 8px 20px rgba(15,23,42,0.08);
+}

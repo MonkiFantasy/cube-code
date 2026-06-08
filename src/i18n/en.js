@@ -83,6 +83,7 @@ export default {
   removeIcon: 'Remove Icon',
   emptyFaceImage: 'Empty Face Image',
   standardMaterial: 'Standard',
+  rubikMaterial: 'Rubik Material',
   glassMaterial: 'Glass',
   geneMaterial: 'Gene Material',
   faceCount: 'Faces:',
@@ -93,6 +94,7 @@ export default {
   faceTop: 'Top',
   faceBottom: 'Bottom',
   faceLeft: 'Left',
+  rubikTurns: 'Turns',
   faceRight: 'Right',
   resetScan: 'Reset Scan',
 };
