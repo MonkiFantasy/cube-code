@@ -316,11 +316,19 @@ function createRubikCube(qrCanvases) {
         requestAnimationFrame(animateTurn);
         return;
       }
+      // Important: children already inherit turnGroup's rotation while the
+      // animation runs. `group.attach(cubie)` preserves that world transform
+      // when moving the cubie back to the main cube. Applying turnGroup.matrix
+      // manually here would rotate/translate the cubie a second time, which is
+      // what made pieces drift away or appear to disappear after several turns.
+      turnGroup.rotation[spec.axis] = spec.angle;
       turnGroup.updateMatrixWorld(true);
       layer.forEach((cubie) => {
-        cubie.applyMatrix4(turnGroup.matrix);
+        const nextCoord = rotateRubikCoord(cubie.userData.coord, spec.axis, spec.dir);
         group.attach(cubie);
-        cubie.userData.coord = rotateRubikCoord(cubie.userData.coord, spec.axis, spec.dir);
+        cubie.userData.coord = nextCoord;
+        cubie.position.set(nextCoord.x * step, nextCoord.y * step, nextCoord.z * step);
+        snapCubieRotation(cubie);
       });
       group.remove(turnGroup);
       turning = false;
@@ -329,6 +337,18 @@ function createRubikCube(qrCanvases) {
   };
 
   return group;
+}
+
+
+function snapCubieRotation(cubie) {
+  const quarter = Math.PI / 2;
+  cubie.rotation.set(
+    Math.round(cubie.rotation.x / quarter) * quarter,
+    Math.round(cubie.rotation.y / quarter) * quarter,
+    Math.round(cubie.rotation.z / quarter) * quarter,
+  );
+  cubie.updateMatrix();
+  cubie.updateMatrixWorld(true);
 }
 
 function buildRubikStickerMaterials(qrCanvases) {
