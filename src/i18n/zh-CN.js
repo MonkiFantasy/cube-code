@@ -96,7 +96,7 @@ export default {
   faceBottom: '下',
   faceLeft: '左',
   rubikTurns: '转动',
-  rubikTurnHint: '左半边拖拽调整视角；右半边横滑转上/中/下层',
+  rubikTurnHint: '拖动画布调整视角；右半边横滑或下方滑槽转上/中/下层',
   rubikScramble: '随机打乱',
   rubikReverse: '反向',
   rubikLeftHand: '左手：转视角',

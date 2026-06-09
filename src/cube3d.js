@@ -178,10 +178,9 @@ export function createCube(container, qrCanvases, { materialMode = 'standard', g
 
   scene.add(mainGroup);
 
-  // Keep the canvas dedicated to OrbitControls. Layer turns live in the
-  // separate right-hand lanes so view rotation, including vertical pitch,
-  // never gets stolen by twist gestures.
-  const rubikGestureCleanup = null;
+  const rubikGestureCleanup = materialMode === 'rubik'
+    ? installRubikSwipeTwists(renderer.domElement, camera, controls, () => cubeGroup)
+    : null;
 
   let animId;
   function animate() {
@@ -268,6 +267,86 @@ function getRendererPixelRatio(materialMode) {
   // Gene mode uses many translucent 3D modules. Capping DPR reduces mobile GPU
   // fill-rate pressure while keeping the visual crisp enough for preview.
   return Math.min(dpr, materialMode === 'gene' ? 1.5 : 2);
+}
+
+
+function installRubikSwipeTwists(domElement, _camera, controls, getCubeGroup) {
+  const dragThreshold = 28;
+  const horizontalDominance = 1.25;
+  let gesture = null;
+
+  const getLocalPoint = (event) => {
+    const rect = domElement.getBoundingClientRect();
+    return {
+      rect,
+      x: event.clientX - rect.left,
+      y: event.clientY - rect.top,
+    };
+  };
+
+  const pickLayer = (clientY, rect) => {
+    const ratio = Math.min(1, Math.max(0, (clientY - rect.top) / rect.height));
+    if (ratio < 1 / 3) return 1;
+    if (ratio < 2 / 3) return 0;
+    return -1;
+  };
+
+  const onPointerDown = (event) => {
+    if (!event.isPrimary && event.pointerType !== 'mouse') return;
+    const point = getLocalPoint(event);
+
+    // 右半边只监听“明显横滑”来转层；竖滑/斜滑完全交给 OrbitControls，
+    // 这样还能正常上下调整视角，不会再被右手区抢走。
+    if (point.x < point.rect.width / 2) {
+      gesture = null;
+      return;
+    }
+
+    gesture = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      layer: pickLayer(event.clientY, point.rect),
+      triggered: false,
+    };
+  };
+
+  const onPointerMove = (event) => {
+    if (!gesture || gesture.pointerId !== event.pointerId || gesture.triggered) return;
+    const dx = event.clientX - gesture.startX;
+    const dy = event.clientY - gesture.startY;
+    const absX = Math.abs(dx);
+    const absY = Math.abs(dy);
+
+    if (absX < dragThreshold) return;
+    if (absX < absY * horizontalDominance) return;
+
+    const group = getCubeGroup?.();
+    if (!group?.twistLayer) return;
+    gesture.triggered = true;
+    controls.autoRotate = false;
+    group.twistLayer('y', gesture.layer, dx > 0 ? 1 : -1);
+    event.preventDefault();
+    event.stopImmediatePropagation?.();
+  };
+
+  const onPointerEnd = (event) => {
+    if (gesture?.pointerId === event.pointerId) gesture = null;
+  };
+
+  domElement.addEventListener('pointerdown', onPointerDown, { passive: true, capture: true });
+  domElement.addEventListener('pointermove', onPointerMove, { passive: false, capture: true });
+  domElement.addEventListener('pointerup', onPointerEnd, { passive: true, capture: true });
+  domElement.addEventListener('pointercancel', onPointerEnd, { passive: true, capture: true });
+  domElement.addEventListener('pointerleave', onPointerEnd, { passive: true, capture: true });
+
+  return () => {
+    domElement.removeEventListener('pointerdown', onPointerDown, { capture: true });
+    domElement.removeEventListener('pointermove', onPointerMove, { capture: true });
+    domElement.removeEventListener('pointerup', onPointerEnd, { capture: true });
+    domElement.removeEventListener('pointercancel', onPointerEnd, { capture: true });
+    domElement.removeEventListener('pointerleave', onPointerEnd, { capture: true });
+  };
 }
 
 function disposeObject3D(object) {

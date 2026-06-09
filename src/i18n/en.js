@@ -95,7 +95,7 @@ export default {
   faceBottom: 'Bottom',
   faceLeft: 'Left',
   rubikTurns: 'Turns',
-  rubikTurnHint: 'Drag left half to orbit; swipe right half to turn top/middle/bottom layers',
+  rubikTurnHint: 'Drag the cube to orbit; horizontal swipes on the right turn layers',
   rubikScramble: 'Scramble',
   rubikReverse: 'Reverse',
   rubikLeftHand: 'Left: orbit',
