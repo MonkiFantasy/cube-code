@@ -95,7 +95,7 @@ export default {
   faceBottom: 'Bottom',
   faceLeft: 'Left',
   rubikTurns: 'Turns',
-  rubikTurnHint: 'Tap letters to queue layer turns; reverse undoes the last turn',
+  rubikTurnHint: 'Drag a sticker to turn that outer layer; drag empty space to inspect',
   rubikScramble: 'Scramble',
   rubikReverse: 'Reverse',
   faceRight: 'Right',

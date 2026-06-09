@@ -96,7 +96,7 @@ export default {
   faceBottom: '下',
   faceLeft: '左',
   rubikTurns: '转动',
-  rubikTurnHint: '点按字母连续转层，反向撤回上一步，拖拽魔方观察角度',
+  rubikTurnHint: '拖拽贴纸转动外层；空白处拖拽观察角度',
   rubikScramble: '随机打乱',
   rubikReverse: '反向',
   faceRight: '右',
