@@ -127,13 +127,22 @@
           <button id="snap-right" data-face="right" data-i18n="faceRight">右</button>
         </div>
         <div id="rubik-controls" class="rubik-controls" hidden>
-          <span data-i18n="rubikTurns">转动:</span>
-          <button data-turn="U">U</button>
-          <button data-turn="D">D</button>
-          <button data-turn="L">L</button>
-          <button data-turn="R">R</button>
-          <button data-turn="F">F</button>
-          <button data-turn="B">B</button>
+          <div class="rubik-controls-head">
+            <strong data-i18n="rubikTurns">转动控制</strong>
+            <span data-i18n="rubikTurnHint">点按字母转动对应层，拖拽魔方观察角度</span>
+          </div>
+          <div class="rubik-turn-grid" role="group" aria-label="Rubik layer turns">
+            <button type="button" class="rubik-turn-btn" data-turn="U">U</button>
+            <button type="button" class="rubik-turn-btn" data-turn="D">D</button>
+            <button type="button" class="rubik-turn-btn" data-turn="L">L</button>
+            <button type="button" class="rubik-turn-btn" data-turn="R">R</button>
+            <button type="button" class="rubik-turn-btn" data-turn="F">F</button>
+            <button type="button" class="rubik-turn-btn" data-turn="B">B</button>
+          </div>
+          <div class="rubik-actions">
+            <button type="button" class="rubik-reverse-btn" data-rubik-action="reverse" data-i18n="rubikReverse">反向</button>
+            <button type="button" class="rubik-scramble-btn" data-rubik-action="scramble" data-i18n="rubikScramble">随机打乱</button>
+          </div>
         </div>
       </div>
       <div id="cross-container" style="display:none"></div>

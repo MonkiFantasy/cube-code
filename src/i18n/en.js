@@ -95,6 +95,9 @@ export default {
   faceBottom: 'Bottom',
   faceLeft: 'Left',
   rubikTurns: 'Turns',
+  rubikTurnHint: 'Tap letters to queue layer turns; reverse undoes the last turn',
+  rubikScramble: 'Scramble',
+  rubikReverse: 'Reverse',
   faceRight: 'Right',
   resetScan: 'Reset Scan',
 };

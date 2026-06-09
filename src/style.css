@@ -1447,28 +1447,142 @@ button#btn-decode:hover,
   cursor: default;
 }
 
+/* Rubik material controls polish */
 .rubik-controls {
-  display: flex;
+  width: min(100%, 540px);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
   align-items: center;
-  justify-content: center;
-  flex-wrap: wrap;
-  gap: 0.35rem;
-  margin: 0.55rem auto 0;
+  gap: 0.65rem;
+  margin: 0.75rem auto 0;
+  padding: 0.72rem;
+  border: 1px solid rgba(79, 70, 229, 0.16);
+  border-radius: 24px;
+  background:
+    linear-gradient(135deg, rgba(255,255,255,0.92), rgba(248,250,252,0.78)),
+    radial-gradient(circle at 16% 10%, rgba(6,182,212,0.16), transparent 42%);
+  box-shadow: 0 14px 34px rgba(15,23,42,0.11);
   color: var(--muted);
-  font-size: 0.82rem;
 }
 
 .rubik-controls[hidden] {
   display: none !important;
 }
 
+.rubik-controls-head {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.6rem;
+  text-align: left;
+}
+
+.rubik-controls-head strong {
+  color: var(--primary-dark);
+  font-size: 0.92rem;
+  letter-spacing: -0.01em;
+}
+
+.rubik-controls-head span {
+  color: var(--muted);
+  font-size: 0.74rem;
+}
+
+.rubik-turn-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(2.35rem, 1fr));
+  gap: 0.38rem;
+}
+
+.rubik-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 0.55fr) minmax(0, 1fr);
+  gap: 0.45rem;
+}
+
 .rubik-controls button {
-  min-width: 2.25rem;
-  padding: 0.42rem 0.6rem;
+  min-height: 2.35rem;
   border: 0;
   border-radius: 999px;
-  background: #fff;
-  color: var(--primary-dark);
+  cursor: pointer;
   font-weight: 900;
-  box-shadow: 0 8px 20px rgba(15,23,42,0.08);
+  transition: transform 0.14s ease, box-shadow 0.14s ease, filter 0.14s ease;
+}
+
+.rubik-controls button:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.02);
+}
+
+.rubik-controls button:active {
+  transform: translateY(1px) scale(0.98);
+}
+
+.rubik-turn-btn {
+  padding: 0.42rem 0.55rem;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.98), rgba(238,242,255,0.92));
+  color: var(--primary-dark);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.9),
+    0 8px 18px rgba(79,70,229,0.13);
+  font-size: 0.92rem;
+}
+
+.rubik-reverse-btn {
+  padding: 0.42rem 0.9rem;
+  color: var(--primary-dark);
+  background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(224,242,254,0.9));
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.9),
+    0 8px 18px rgba(14,165,233,0.14);
+}
+
+.rubik-scramble-btn {
+  padding: 0.42rem 0.9rem;
+  color: #fff;
+  white-space: nowrap;
+  background: linear-gradient(135deg, var(--primary-dark), var(--primary-2));
+  box-shadow: 0 10px 22px rgba(79,70,229,0.22);
+}
+
+@media (max-width: 560px) {
+  .cube-container #cube-3d {
+    max-width: min(320px, 92vw);
+  }
+
+  .rubik-controls {
+    grid-template-columns: 1fr;
+    width: 100%;
+    gap: 0.55rem;
+    padding: 0.62rem;
+    border-radius: 20px;
+  }
+
+  .rubik-controls-head {
+    display: block;
+    text-align: center;
+  }
+
+  .rubik-controls-head span {
+    display: block;
+    margin-top: 0.16rem;
+    font-size: 0.7rem;
+  }
+
+  .rubik-turn-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.42rem;
+  }
+
+  .rubik-actions {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .rubik-turn-btn,
+  .rubik-reverse-btn,
+  .rubik-scramble-btn {
+    width: 100%;
+  }
 }

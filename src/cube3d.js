@@ -57,14 +57,14 @@ export function createCube(container, qrCanvases, { materialMode = 'standard', g
   const height = container.clientWidth;
 
   const scene = new Scene();
-  scene.background = materialMode === 'gene'
+  scene.background = materialMode === 'gene' || materialMode === 'rubik'
     ? new Color(0x05060c)
     : new Color(0xf5f5f5);
 
-  // Add environment map for glass/gene reflections
+  // Add environment map for glossy materials.
   let pmremGenerator = null;
   let envRenderer = null;
-  if (materialMode === 'glass' || materialMode === 'gene') {
+  if (materialMode === 'glass' || materialMode === 'gene' || materialMode === 'rubik') {
     envRenderer = new WebGLRenderer({ antialias: true });
     pmremGenerator = new PMREMGenerator(envRenderer);
     const envTexture = pmremGenerator.fromScene(new RoomEnvironment()).texture;
@@ -79,7 +79,7 @@ export function createCube(container, qrCanvases, { materialMode = 'standard', g
   renderer.setPixelRatio(getRendererPixelRatio(materialMode));
   renderer.outputColorSpace = SRGBColorSpace;
   renderer.toneMapping = ACESFilmicToneMapping;
-  renderer.toneMappingExposure = materialMode === 'gene' ? 1.65 : 1.0;
+  renderer.toneMappingExposure = materialMode === 'gene' ? 1.65 : materialMode === 'rubik' ? 1.22 : 1.0;
   container.appendChild(renderer.domElement);
 
   const controls = new OrbitControls(camera, renderer.domElement);
@@ -134,12 +134,12 @@ export function createCube(container, qrCanvases, { materialMode = 'standard', g
     }
   }
 
-  const ambient = new AmbientLight(0xffffff, materialMode === 'gene' ? 0.22 : 0.8);
+  const ambient = new AmbientLight(0xffffff, materialMode === 'gene' ? 0.22 : materialMode === 'rubik' ? 0.46 : 0.8);
   scene.add(ambient);
-  const dirLight = new DirectionalLight(0xffffff, materialMode === 'gene' ? 0.95 : 0.5);
+  const dirLight = new DirectionalLight(0xffffff, materialMode === 'gene' ? 0.95 : materialMode === 'rubik' ? 1.05 : 0.5);
   dirLight.position.set(5, 5, 5);
   scene.add(dirLight);
-  if (materialMode === 'gene') {
+  if (materialMode === 'gene' || materialMode === 'rubik') {
     const rimLight = new DirectionalLight(0x9bbcff, 1.45);
     rimLight.position.set(-4, 3, -5);
     scene.add(rimLight);
@@ -201,6 +201,7 @@ export function createCube(container, qrCanvases, { materialMode = 'standard', g
       if (materialMode === 'gene' || materialMode === 'rubik') {
         // Remove old cube group and create new one. Dispose GPU resources
         // explicitly because Three.js does not release removed objects for us.
+        cubeGroup.stopTwists?.();
         mainGroup.remove(cubeGroup);
         disposeObject3D(cubeGroup);
         cubeGroup = materialMode === 'gene' ? createGeneCube(qrCanvases, geneColor) : createRubikCube(qrCanvases);
@@ -222,9 +223,22 @@ export function createCube(container, qrCanvases, { materialMode = 'standard', g
         cubeGroup.twist(move);
       }
     },
+    reverseLastTwist() {
+      if (materialMode === 'rubik' && cubeGroup?.reverseLastTwist) {
+        controls.autoRotate = false;
+        cubeGroup.reverseLastTwist();
+      }
+    },
+    scramble(count) {
+      if (materialMode === 'rubik' && cubeGroup?.scramble) {
+        controls.autoRotate = false;
+        cubeGroup.scramble(count);
+      }
+    },
     dispose() {
       cancelAnimationFrame(animId);
       controls.dispose();
+      cubeGroup?.stopTwists?.();
       window.removeEventListener('resize', onResize);
       disposeObject3D(mainGroup);
       if (pmremGenerator) pmremGenerator.dispose();
@@ -269,11 +283,18 @@ function disposeMaterial(material) {
 function createRubikCube(qrCanvases) {
   const group = new Group();
   const cubies = [];
-  const cubieSize = 0.54;
-  const step = 0.61;
-  const stickerSize = cubieSize * 0.86;
-  const plasticMaterial = new MeshStandardMaterial({ color: 0x111827, roughness: 0.62, metalness: 0.04 });
-  const cubieGeometry = new RoundedBoxGeometry(cubieSize, cubieSize, cubieSize, 2, 0.035);
+  const cubieSize = 0.56;
+  const step = 0.615;
+  const stickerSize = cubieSize * 0.84;
+  const plasticMaterial = new MeshPhysicalMaterial({
+    color: 0x050712,
+    roughness: 0.34,
+    metalness: 0.08,
+    clearcoat: 0.75,
+    clearcoatRoughness: 0.12,
+    envMapIntensity: 1.35,
+  });
+  const cubieGeometry = new RoundedBoxGeometry(cubieSize, cubieSize, cubieSize, 3, 0.05);
   const stickerGeometry = new PlaneGeometry(stickerSize, stickerSize);
   const stickerMaterials = buildRubikStickerMaterials(qrCanvases);
 
@@ -297,43 +318,99 @@ function createRubikCube(qrCanvases) {
   }
 
   let turning = false;
-  group.twist = (move) => {
-    if (turning) return;
+  let stopped = false;
+  let turnFrameId = null;
+  const moveQueue = [];
+  const moveHistory = [];
+  const maxQueuedTurns = 96;
+  const maxHistoryTurns = 160;
+
+  const enqueueTurns = (moves, { recordHistory = true } = {}) => {
+    const validMoves = moves.filter((move) => getRubikMoveSpec(move));
+    if (validMoves.length === 0 || stopped) return;
+    const room = Math.max(0, maxQueuedTurns - moveQueue.length);
+    moveQueue.push(...validMoves.slice(0, room).map((move) => ({ move, recordHistory })));
+    runNextQueuedTurn();
+  };
+
+  const finishTurn = (turnGroup, layer, spec, queueItem) => {
+    // Important: children already inherit turnGroup's rotation while the
+    // animation runs. `group.attach(cubie)` preserves that world transform
+    // when moving the cubie back to the main cube. Applying turnGroup.matrix
+    // manually here would rotate/translate the cubie a second time, which is
+    // what made pieces drift away or appear to disappear after several turns.
+    turnGroup.rotation[spec.axis] = spec.angle;
+    turnGroup.updateMatrixWorld(true);
+    layer.forEach((cubie) => {
+      const nextCoord = rotateRubikCoord(cubie.userData.coord, spec.axis, spec.dir);
+      group.attach(cubie);
+      cubie.userData.coord = nextCoord;
+      cubie.position.set(nextCoord.x * step, nextCoord.y * step, nextCoord.z * step);
+      snapCubieRotation(cubie);
+    });
+    group.remove(turnGroup);
+    if (queueItem.recordHistory) {
+      moveHistory.push(queueItem.move);
+      if (moveHistory.length > maxHistoryTurns) {
+        moveHistory.splice(0, moveHistory.length - maxHistoryTurns);
+      }
+    }
+    turning = false;
+    runNextQueuedTurn();
+  };
+
+  function runNextQueuedTurn() {
+    if (turning || stopped) return;
+    const queueItem = moveQueue.shift();
+    if (!queueItem) return;
+    const { move } = queueItem;
     const spec = getRubikMoveSpec(move);
     if (!spec) return;
+
     turning = true;
     const layer = cubies.filter((cubie) => cubie.userData.coord[spec.axis] === spec.layer);
     const turnGroup = new Group();
     group.add(turnGroup);
     layer.forEach((cubie) => turnGroup.attach(cubie));
+
     const start = window.performance.now();
     const duration = 260;
     const animateTurn = (now) => {
+      if (stopped) return;
       const t = Math.min(1, (now - start) / duration);
       const eased = 1 - Math.pow(1 - t, 3);
       turnGroup.rotation[spec.axis] = spec.angle * eased;
       if (t < 1) {
-        requestAnimationFrame(animateTurn);
+        turnFrameId = requestAnimationFrame(animateTurn);
         return;
       }
-      // Important: children already inherit turnGroup's rotation while the
-      // animation runs. `group.attach(cubie)` preserves that world transform
-      // when moving the cubie back to the main cube. Applying turnGroup.matrix
-      // manually here would rotate/translate the cubie a second time, which is
-      // what made pieces drift away or appear to disappear after several turns.
-      turnGroup.rotation[spec.axis] = spec.angle;
-      turnGroup.updateMatrixWorld(true);
-      layer.forEach((cubie) => {
-        const nextCoord = rotateRubikCoord(cubie.userData.coord, spec.axis, spec.dir);
-        group.attach(cubie);
-        cubie.userData.coord = nextCoord;
-        cubie.position.set(nextCoord.x * step, nextCoord.y * step, nextCoord.z * step);
-        snapCubieRotation(cubie);
-      });
-      group.remove(turnGroup);
-      turning = false;
+      turnFrameId = null;
+      finishTurn(turnGroup, layer, spec, queueItem);
     };
-    requestAnimationFrame(animateTurn);
+    turnFrameId = requestAnimationFrame(animateTurn);
+  }
+
+  group.twist = (move) => {
+    enqueueTurns([move]);
+  };
+
+  group.scramble = (count = 20) => {
+    enqueueTurns(createRubikScrambleMoves(count));
+  };
+
+  group.reverseLastTwist = () => {
+    const lastMove = moveHistory.pop();
+    if (!lastMove) return;
+    enqueueTurns([invertRubikMove(lastMove)], { recordHistory: false });
+  };
+
+  group.stopTwists = () => {
+    stopped = true;
+    moveQueue.length = 0;
+    if (turnFrameId !== null) {
+      cancelAnimationFrame(turnFrameId);
+      turnFrameId = null;
+    }
   };
 
   return group;
@@ -379,7 +456,14 @@ function splitCanvasMaterials(canvas) {
       texture.minFilter = NearestFilter;
       texture.magFilter = NearestFilter;
       texture.generateMipmaps = false;
-      cols.push(new MeshStandardMaterial({ map: texture, roughness: 0.48, metalness: 0.02 }));
+      cols.push(new MeshPhysicalMaterial({
+        map: texture,
+        roughness: 0.22,
+        metalness: 0.02,
+        clearcoat: 0.68,
+        clearcoatRoughness: 0.08,
+        envMapIntensity: 1.18,
+      }));
     }
     rows.push(cols);
   }
@@ -426,8 +510,35 @@ function getRubikMoveSpec(move) {
     R: { axis: 'x', layer: 1, angle: -Math.PI / 2, dir: -1 },
     F: { axis: 'z', layer: 1, angle: -Math.PI / 2, dir: -1 },
     B: { axis: 'z', layer: -1, angle: Math.PI / 2, dir: 1 },
+    "U'": { axis: 'y', layer: 1, angle: -Math.PI / 2, dir: -1 },
+    "D'": { axis: 'y', layer: -1, angle: Math.PI / 2, dir: 1 },
+    "L'": { axis: 'x', layer: -1, angle: -Math.PI / 2, dir: -1 },
+    "R'": { axis: 'x', layer: 1, angle: Math.PI / 2, dir: 1 },
+    "F'": { axis: 'z', layer: 1, angle: Math.PI / 2, dir: 1 },
+    "B'": { axis: 'z', layer: -1, angle: -Math.PI / 2, dir: -1 },
   };
   return specs[move];
+}
+
+function invertRubikMove(move) {
+  return move.endsWith("'") ? move.slice(0, -1) : `${move}'`;
+}
+
+function createRubikScrambleMoves(count) {
+  const moves = ['U', 'D', 'L', 'R', 'F', 'B'];
+  const axes = { U: 'y', D: 'y', L: 'x', R: 'x', F: 'z', B: 'z' };
+  const safeCount = Math.min(60, Math.max(1, Number.parseInt(count, 10) || 20));
+  const result = [];
+  let lastAxis = null;
+
+  for (let i = 0; i < safeCount; i++) {
+    const candidates = moves.filter((move) => axes[move] !== lastAxis);
+    const move = candidates[Math.floor(Math.random() * candidates.length)];
+    result.push(move);
+    lastAxis = axes[move];
+  }
+
+  return result;
 }
 
 function rotateRubikCoord(coord, axis, dir) {

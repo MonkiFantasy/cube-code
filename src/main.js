@@ -868,9 +868,18 @@ if (geneColorPicker) {
 
 // Save cross net as image
 rubikControls?.addEventListener('click', (event) => {
-  const button = event.target.closest('button[data-turn]');
-  if (!button || !cube3d?.twist) return;
-  cube3d.twist(button.dataset.turn);
+  const turnButton = event.target.closest('button[data-turn]');
+  if (turnButton && cube3d?.twist) {
+    cube3d.twist(turnButton.dataset.turn);
+    return;
+  }
+
+  const actionButton = event.target.closest('button[data-rubik-action]');
+  if (actionButton?.dataset.rubikAction === 'scramble' && cube3d?.scramble) {
+    cube3d.scramble(20);
+  } else if (actionButton?.dataset.rubikAction === 'reverse' && cube3d?.reverseLastTwist) {
+    cube3d.reverseLastTwist();
+  }
 });
 
 btnSave.addEventListener('click', () => {
