@@ -21,12 +21,10 @@ import {
   PlaneGeometry,
   PMREMGenerator,
   PointLight,
-  Raycaster,
   Scene,
   Sprite,
   SpriteMaterial,
   SRGBColorSpace,
-  Vector2,
   Vector3,
   WebGLRenderer,
 } from 'three';
@@ -271,156 +269,88 @@ function getRendererPixelRatio(materialMode) {
   return Math.min(dpr, materialMode === 'gene' ? 1.5 : 2);
 }
 
-function installRubikSwipeTwists(domElement, camera, controls, getCubeGroup) {
-  const raycaster = new Raycaster();
-  const pointer = new Vector2();
-  const dragThreshold = 34;
+function installRubikSwipeTwists(domElement, _camera, controls, getCubeGroup) {
+  const dragThreshold = 30;
   let gesture = null;
 
-  const getHitCubie = (event) => {
-    const group = getCubeGroup?.();
-    if (!group) return null;
+  const isRightTurnZone = (event) => {
     const rect = domElement.getBoundingClientRect();
-    pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-    pointer.y = -(((event.clientY - rect.top) / rect.height) * 2 - 1);
-    raycaster.setFromCamera(pointer, camera);
-    const hits = raycaster.intersectObjects(group.children, true);
-    for (const hit of hits) {
-      const cubie = findRubikCubie(hit.object);
-      if (!cubie) continue;
-      return { hit, cubie, group };
-    }
-    return null;
+    return event.clientX - rect.left >= rect.width / 2;
+  };
+
+  const pickLayer = (event) => {
+    const rect = domElement.getBoundingClientRect();
+    const ratio = Math.min(1, Math.max(0, (event.clientY - rect.top) / rect.height));
+    if (ratio < 1 / 3) return 1;
+    if (ratio < 2 / 3) return 0;
+    return -1;
   };
 
   const onPointerDown = (event) => {
     if (!event.isPrimary && event.pointerType !== 'mouse') return;
-    const picked = getHitCubie(event);
-    if (!picked) {
+
+    // 双手模式：左半边只调视角；右半边只转上/中/下层，避免两套手势互相抢。
+    if (!isRightTurnZone(event)) {
       gesture = null;
+      controls.enabled = true;
       return;
     }
+
+    const group = getCubeGroup?.();
+    if (!group?.twistLayer) return;
+
     gesture = {
       pointerId: event.pointerId,
       startX: event.clientX,
       startY: event.clientY,
-      picked,
+      layer: pickLayer(event),
       triggered: false,
     };
+    controls.enabled = false;
+    controls.autoRotate = false;
+    domElement.setPointerCapture?.(event.pointerId);
+    event.preventDefault();
+    event.stopImmediatePropagation?.();
   };
 
   const onPointerMove = (event) => {
     if (!gesture || gesture.pointerId !== event.pointerId || gesture.triggered) return;
+
     const dx = event.clientX - gesture.startX;
     const dy = event.clientY - gesture.startY;
     if (Math.hypot(dx, dy) < dragThreshold) return;
 
-    const move = resolveRubikSwipeMove(gesture.picked, camera, { x: dx, y: dy });
-    if (!move) {
-      gesture = null;
-      return;
-    }
-
+    // 右侧像“推层”：按起点高度锁定上/中/下层；横向滑动决定方向。
+    const dir = dx >= 0 ? 1 : -1;
+    getCubeGroup?.()?.twistLayer?.('y', gesture.layer, dir);
     gesture.triggered = true;
-    controls.autoRotate = false;
     event.preventDefault();
     event.stopImmediatePropagation?.();
-    gesture.picked.group.twistLayer?.(move.axis, move.layer, move.dir);
   };
 
   const onPointerEnd = (event) => {
     if (gesture?.pointerId === event.pointerId) {
       gesture = null;
+      controls.enabled = true;
+      domElement.releasePointerCapture?.(event.pointerId);
     }
   };
 
-  domElement.addEventListener('pointerdown', onPointerDown, { passive: true });
+  domElement.addEventListener('pointerdown', onPointerDown, { passive: false, capture: true });
   domElement.addEventListener('pointermove', onPointerMove, { passive: false, capture: true });
-  domElement.addEventListener('pointerup', onPointerEnd, { passive: true });
-  domElement.addEventListener('pointercancel', onPointerEnd, { passive: true });
-  domElement.addEventListener('pointerleave', onPointerEnd, { passive: true });
+  domElement.addEventListener('pointerup', onPointerEnd, { passive: true, capture: true });
+  domElement.addEventListener('pointercancel', onPointerEnd, { passive: true, capture: true });
+  domElement.addEventListener('pointerleave', onPointerEnd, { passive: true, capture: true });
 
   return () => {
-    domElement.removeEventListener('pointerdown', onPointerDown);
+    domElement.removeEventListener('pointerdown', onPointerDown, { capture: true });
     domElement.removeEventListener('pointermove', onPointerMove, { capture: true });
-    domElement.removeEventListener('pointerup', onPointerEnd);
-    domElement.removeEventListener('pointercancel', onPointerEnd);
-    domElement.removeEventListener('pointerleave', onPointerEnd);
+    domElement.removeEventListener('pointerup', onPointerEnd, { capture: true });
+    domElement.removeEventListener('pointercancel', onPointerEnd, { capture: true });
+    domElement.removeEventListener('pointerleave', onPointerEnd, { capture: true });
+    controls.enabled = true;
   };
 }
-
-function findRubikCubie(object) {
-  let current = object;
-  while (current) {
-    if (current.userData?.isRubikCubie && current.userData.coord) return current;
-    current = current.parent;
-  }
-  return null;
-}
-
-function resolveRubikSwipeMove(picked, camera, screenDelta) {
-  const coord = picked.cubie.userData.coord;
-  const faceNormal = picked.hit.face?.normal?.clone();
-  if (!coord || !faceNormal) return null;
-
-  faceNormal.transformDirection(picked.hit.object.matrixWorld);
-  const faceAxis = dominantAxis(faceNormal);
-  if (!faceAxis) return null;
-
-  const drag = new Vector2(screenDelta.x, screenDelta.y);
-  if (drag.lengthSq() === 0) return null;
-  drag.normalize();
-
-  const candidateAxes = ['x', 'y', 'z']
-    .filter((axis) => axis !== faceAxis.axis && Math.abs(coord[axis]) === 1);
-  if (candidateAxes.length === 0) return null;
-
-  const origin = new Vector3(0, 0, 0);
-  const point = picked.cubie.position.clone().normalize();
-  const best = candidateAxes
-    .map((axis) => {
-      const axisVector = axisToVector(axis);
-      const tangent = axisVector.clone().cross(point);
-      if (tangent.lengthSq() < 1e-6) return null;
-      const screenTangent = projectWorldDirection(origin, tangent.normalize(), camera);
-      if (!screenTangent || screenTangent.lengthSq() < 1e-6) return null;
-      screenTangent.normalize();
-      const dot = screenTangent.dot(drag);
-      return { axis, dot, score: Math.abs(dot) };
-    })
-    .filter(Boolean)
-    .sort((a, b) => b.score - a.score)[0];
-
-  if (!best || best.score < 0.35) return null;
-  return {
-    axis: best.axis,
-    layer: coord[best.axis],
-    dir: best.dot >= 0 ? 1 : -1,
-  };
-}
-
-function dominantAxis(vector) {
-  const values = [
-    { axis: 'x', value: vector.x },
-    { axis: 'y', value: vector.y },
-    { axis: 'z', value: vector.z },
-  ].sort((a, b) => Math.abs(b.value) - Math.abs(a.value));
-  if (Math.abs(values[0].value) < 0.5) return null;
-  return values[0];
-}
-
-function axisToVector(axis) {
-  if (axis === 'x') return new Vector3(1, 0, 0);
-  if (axis === 'y') return new Vector3(0, 1, 0);
-  return new Vector3(0, 0, 1);
-}
-
-function projectWorldDirection(origin, direction, camera) {
-  const a = origin.clone().project(camera);
-  const b = origin.clone().add(direction).project(camera);
-  return new Vector2(b.x - a.x, -(b.y - a.y));
-}
-
 
 function disposeObject3D(object) {
   if (!object) return;
@@ -695,20 +625,26 @@ function getRubikMoveSpec(move) {
     "R'": { axis: 'x', layer: 1, angle: Math.PI / 2, dir: 1 },
     "F'": { axis: 'z', layer: 1, angle: Math.PI / 2, dir: 1 },
     "B'": { axis: 'z', layer: -1, angle: -Math.PI / 2, dir: -1 },
+    M: { axis: 'x', layer: 0, angle: Math.PI / 2, dir: 1 },
+    "M'": { axis: 'x', layer: 0, angle: -Math.PI / 2, dir: -1 },
+    E: { axis: 'y', layer: 0, angle: -Math.PI / 2, dir: -1 },
+    "E'": { axis: 'y', layer: 0, angle: Math.PI / 2, dir: 1 },
+    S: { axis: 'z', layer: 0, angle: -Math.PI / 2, dir: -1 },
+    "S'": { axis: 'z', layer: 0, angle: Math.PI / 2, dir: 1 },
   };
   return specs[move];
 }
 
 function getRubikMoveFromLayer(axis, layer, dir) {
   const normalizedAxis = axis === 'x' || axis === 'y' || axis === 'z' ? axis : null;
-  const normalizedLayer = layer === -1 || layer === 1 ? layer : null;
+  const normalizedLayer = layer === -1 || layer === 0 || layer === 1 ? layer : null;
   const normalizedDir = dir >= 0 ? 1 : -1;
   if (!normalizedAxis || normalizedLayer === null) return null;
 
   const specs = {
-    y: { 1: { 1: 'U', '-1': "U'" }, '-1': { 1: "D'", '-1': 'D' } },
-    x: { 1: { 1: "R'", '-1': 'R' }, '-1': { 1: 'L', '-1': "L'" } },
-    z: { 1: { 1: "F'", '-1': 'F' }, '-1': { 1: 'B', '-1': "B'" } },
+    y: { 1: { 1: 'U', '-1': "U'" }, 0: { 1: "E'", '-1': 'E' }, '-1': { 1: "D'", '-1': 'D' } },
+    x: { 1: { 1: "R'", '-1': 'R' }, 0: { 1: 'M', '-1': "M'" }, '-1': { 1: 'L', '-1': "L'" } },
+    z: { 1: { 1: "F'", '-1': 'F' }, 0: { 1: "S'", '-1': 'S' }, '-1': { 1: 'B', '-1': "B'" } },
   };
   return specs[normalizedAxis]?.[normalizedLayer]?.[normalizedDir] || null;
 }

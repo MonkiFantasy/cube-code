@@ -867,7 +867,56 @@ if (geneColorPicker) {
 }
 
 // Save cross net as image
+let rubikLaneGesture = null;
+
+function triggerRubikHorizontalLayer(layer, dx) {
+  if (!cube3d?.twistLayer || !Number.isFinite(layer) || dx === 0) return;
+  cube3d.twistLayer('y', layer, dx > 0 ? 1 : -1);
+}
+
+rubikControls?.addEventListener('pointerdown', (event) => {
+  const lane = event.target.closest?.('.rubik-layer-lane');
+  if (!lane) return;
+  rubikLaneGesture = {
+    pointerId: event.pointerId,
+    startX: event.clientX,
+    startY: event.clientY,
+    layer: Number(lane.dataset.rubikLayer),
+    lane,
+    triggered: false,
+  };
+  lane.classList.add('is-swiping');
+  lane.setPointerCapture?.(event.pointerId);
+});
+
+rubikControls?.addEventListener('pointermove', (event) => {
+  if (!rubikLaneGesture || rubikLaneGesture.pointerId !== event.pointerId || rubikLaneGesture.triggered) return;
+  const dx = event.clientX - rubikLaneGesture.startX;
+  const dy = event.clientY - rubikLaneGesture.startY;
+  if (Math.abs(dx) < 30 || Math.abs(dx) < Math.abs(dy) * 1.2) return;
+  rubikLaneGesture.triggered = true;
+  event.preventDefault();
+  triggerRubikHorizontalLayer(rubikLaneGesture.layer, dx);
+});
+
+function clearRubikLaneGesture(event) {
+  if (!rubikLaneGesture || (event && rubikLaneGesture.pointerId !== event.pointerId)) return;
+  rubikLaneGesture.lane?.classList.remove('is-swiping');
+  rubikLaneGesture = null;
+}
+
+rubikControls?.addEventListener('pointerup', clearRubikLaneGesture);
+rubikControls?.addEventListener('pointercancel', clearRubikLaneGesture);
+rubikControls?.addEventListener('pointerleave', clearRubikLaneGesture);
+
 rubikControls?.addEventListener('click', (event) => {
+  const lane = event.target.closest?.('.rubik-layer-lane');
+  if (lane) {
+    // Tap is a rightward nudge; horizontal swipes above remain the primary path.
+    triggerRubikHorizontalLayer(Number(lane.dataset.rubikLayer), 1);
+    return;
+  }
+
   const turnButton = event.target.closest('button[data-turn]');
   if (turnButton && cube3d?.twist) {
     cube3d.twist(turnButton.dataset.turn);
@@ -880,6 +929,35 @@ rubikControls?.addEventListener('click', (event) => {
   } else if (actionButton?.dataset.rubikAction === 'reverse' && cube3d?.reverseLastTwist) {
     cube3d.reverseLastTwist();
   }
+});
+
+let rubikLayerPadGesture = null;
+rubikControls?.addEventListener('pointerdown', (event) => {
+  const lane = event.target.closest('button[data-rubik-layer]');
+  if (!lane || !cube3d?.twistLayer) return;
+  rubikLayerPadGesture = {
+    pointerId: event.pointerId,
+    startX: event.clientX,
+    layer: Number.parseInt(lane.dataset.rubikLayer, 10),
+    lane,
+  };
+  lane.classList.add('is-swiping');
+  lane.setPointerCapture?.(event.pointerId);
+});
+
+rubikControls?.addEventListener('pointerup', (event) => {
+  if (!rubikLayerPadGesture || rubikLayerPadGesture.pointerId !== event.pointerId) return;
+  const dx = event.clientX - rubikLayerPadGesture.startX;
+  const layer = rubikLayerPadGesture.layer;
+  rubikLayerPadGesture.lane?.classList.remove('is-swiping');
+  rubikLayerPadGesture = null;
+  if (Math.abs(dx) < 18) return;
+  cube3d?.twistLayer?.('y', layer, dx >= 0 ? 1 : -1);
+});
+
+rubikControls?.addEventListener('pointercancel', () => {
+  rubikLayerPadGesture?.lane?.classList.remove('is-swiping');
+  rubikLayerPadGesture = null;
 });
 
 btnSave.addEventListener('click', () => {
