@@ -21,10 +21,12 @@ import {
   PlaneGeometry,
   PMREMGenerator,
   PointLight,
+  Raycaster,
   Scene,
   Sprite,
   SpriteMaterial,
   SRGBColorSpace,
+  Vector2,
   Vector3,
   WebGLRenderer,
 } from 'three';
@@ -270,43 +272,49 @@ function getRendererPixelRatio(materialMode) {
 }
 
 
-function installRubikSwipeTwists(domElement, _camera, controls, getCubeGroup) {
-  const dragThreshold = 28;
-  const horizontalDominance = 1.25;
+
+function installRubikSwipeTwists(domElement, camera, controls, getCubeGroup) {
+  const raycaster = new Raycaster();
+  const pointer = new Vector2();
+  const dragThreshold = 24;
+  const minAxisScore = 0.42;
   let gesture = null;
 
-  const getLocalPoint = (event) => {
+  const setPointer = (event) => {
     const rect = domElement.getBoundingClientRect();
-    return {
-      rect,
-      x: event.clientX - rect.left,
-      y: event.clientY - rect.top,
-    };
+    pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+    pointer.y = -(((event.clientY - rect.top) / rect.height) * 2 - 1);
   };
 
-  const pickLayer = (clientY, rect) => {
-    const ratio = Math.min(1, Math.max(0, (clientY - rect.top) / rect.height));
-    if (ratio < 1 / 3) return 1;
-    if (ratio < 2 / 3) return 0;
-    return -1;
+  const findPickedCubie = (event) => {
+    const group = getCubeGroup?.();
+    if (!group) return null;
+    setPointer(event);
+    raycaster.setFromCamera(pointer, camera);
+    const hits = raycaster.intersectObjects(group.children, true);
+    for (const hit of hits) {
+      const cubie = findRubikCubie(hit.object);
+      if (!cubie) continue;
+      const normal = hit.face?.normal?.clone();
+      if (!normal) continue;
+      normal.transformDirection(hit.object.matrixWorld);
+      return { cubie, point: hit.point.clone(), normal };
+    }
+    return null;
   };
 
   const onPointerDown = (event) => {
     if (!event.isPrimary && event.pointerType !== 'mouse') return;
-    const point = getLocalPoint(event);
-
-    // 右半边只监听“明显横滑”来转层；竖滑/斜滑完全交给 OrbitControls，
-    // 这样还能正常上下调整视角，不会再被右手区抢走。
-    if (point.x < point.rect.width / 2) {
+    const picked = findPickedCubie(event);
+    if (!picked) {
       gesture = null;
       return;
     }
-
     gesture = {
       pointerId: event.pointerId,
       startX: event.clientX,
       startY: event.clientY,
-      layer: pickLayer(event.clientY, point.rect),
+      picked,
       triggered: false,
     };
   };
@@ -315,23 +323,29 @@ function installRubikSwipeTwists(domElement, _camera, controls, getCubeGroup) {
     if (!gesture || gesture.pointerId !== event.pointerId || gesture.triggered) return;
     const dx = event.clientX - gesture.startX;
     const dy = event.clientY - gesture.startY;
-    const absX = Math.abs(dx);
-    const absY = Math.abs(dy);
+    if (Math.hypot(dx, dy) < dragThreshold) return;
 
-    if (absX < dragThreshold) return;
-    if (absX < absY * horizontalDominance) return;
+    const move = resolveRubikDragMove(gesture.picked, camera, { x: dx, y: dy }, minAxisScore);
+    if (!move) {
+      gesture = null;
+      return;
+    }
 
     const group = getCubeGroup?.();
     if (!group?.twistLayer) return;
     gesture.triggered = true;
+    controls.enabled = false;
     controls.autoRotate = false;
-    group.twistLayer('y', gesture.layer, dx > 0 ? 1 : -1);
+    group.twistLayer(move.axis, move.layer, move.dir);
     event.preventDefault();
     event.stopImmediatePropagation?.();
   };
 
   const onPointerEnd = (event) => {
-    if (gesture?.pointerId === event.pointerId) gesture = null;
+    if (gesture?.pointerId === event.pointerId) {
+      gesture = null;
+      controls.enabled = true;
+    }
   };
 
   domElement.addEventListener('pointerdown', onPointerDown, { passive: true, capture: true });
@@ -346,7 +360,69 @@ function installRubikSwipeTwists(domElement, _camera, controls, getCubeGroup) {
     domElement.removeEventListener('pointerup', onPointerEnd, { capture: true });
     domElement.removeEventListener('pointercancel', onPointerEnd, { capture: true });
     domElement.removeEventListener('pointerleave', onPointerEnd, { capture: true });
+    controls.enabled = true;
   };
+}
+
+function findRubikCubie(object) {
+  let current = object;
+  while (current) {
+    if (current.userData?.isRubikCubie && current.userData.coord) return current;
+    current = current.parent;
+  }
+  return null;
+}
+
+function resolveRubikDragMove(picked, camera, screenDelta, minAxisScore) {
+  const coord = picked.cubie.userData.coord;
+  const faceAxis = dominantAxis(picked.normal);
+  if (!faceAxis || !coord) return null;
+
+  const drag = new Vector2(screenDelta.x, screenDelta.y);
+  if (drag.lengthSq() === 0) return null;
+  drag.normalize();
+
+  const origin = picked.point.clone();
+  const candidates = ['x', 'y', 'z']
+    .filter((axis) => axis !== faceAxis.axis)
+    .map((axis) => {
+      const axisVector = axisToVector(axis);
+      const tangent = axisVector.clone().cross(origin);
+      if (tangent.lengthSq() < 1e-6) return null;
+      const screenTangent = projectWorldDirection(origin, tangent.normalize(), camera);
+      if (!screenTangent || screenTangent.lengthSq() < 1e-6) return null;
+      screenTangent.normalize();
+      const dot = screenTangent.dot(drag);
+      return { axis, layer: coord[axis], dir: dot >= 0 ? 1 : -1, score: Math.abs(dot) };
+    })
+    .filter(Boolean)
+    .sort((a, b) => b.score - a.score);
+
+  const best = candidates[0];
+  if (!best || best.score < minAxisScore) return null;
+  return best;
+}
+
+function dominantAxis(vector) {
+  const values = [
+    { axis: 'x', value: vector.x },
+    { axis: 'y', value: vector.y },
+    { axis: 'z', value: vector.z },
+  ].sort((a, b) => Math.abs(b.value) - Math.abs(a.value));
+  if (Math.abs(values[0].value) < 0.5) return null;
+  return values[0];
+}
+
+function axisToVector(axis) {
+  if (axis === 'x') return new Vector3(1, 0, 0);
+  if (axis === 'y') return new Vector3(0, 1, 0);
+  return new Vector3(0, 0, 1);
+}
+
+function projectWorldDirection(origin, direction, camera) {
+  const a = origin.clone().project(camera);
+  const b = origin.clone().add(direction).project(camera);
+  return new Vector2(b.x - a.x, -(b.y - a.y));
 }
 
 function disposeObject3D(object) {
