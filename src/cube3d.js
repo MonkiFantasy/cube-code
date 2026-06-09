@@ -178,9 +178,10 @@ export function createCube(container, qrCanvases, { materialMode = 'standard', g
 
   scene.add(mainGroup);
 
-  const rubikGestureCleanup = materialMode === 'rubik'
-    ? installRubikSwipeTwists(renderer.domElement, camera, controls, () => cubeGroup)
-    : null;
+  // Keep the canvas dedicated to OrbitControls. Layer turns live in the
+  // separate right-hand lanes so view rotation, including vertical pitch,
+  // never gets stolen by twist gestures.
+  const rubikGestureCleanup = null;
 
   let animId;
   function animate() {
@@ -267,89 +268,6 @@ function getRendererPixelRatio(materialMode) {
   // Gene mode uses many translucent 3D modules. Capping DPR reduces mobile GPU
   // fill-rate pressure while keeping the visual crisp enough for preview.
   return Math.min(dpr, materialMode === 'gene' ? 1.5 : 2);
-}
-
-function installRubikSwipeTwists(domElement, _camera, controls, getCubeGroup) {
-  const dragThreshold = 30;
-  let gesture = null;
-
-  const isRightTurnZone = (event) => {
-    const rect = domElement.getBoundingClientRect();
-    return event.clientX - rect.left >= rect.width / 2;
-  };
-
-  const pickLayer = (event) => {
-    const rect = domElement.getBoundingClientRect();
-    const ratio = Math.min(1, Math.max(0, (event.clientY - rect.top) / rect.height));
-    if (ratio < 1 / 3) return 1;
-    if (ratio < 2 / 3) return 0;
-    return -1;
-  };
-
-  const onPointerDown = (event) => {
-    if (!event.isPrimary && event.pointerType !== 'mouse') return;
-
-    // 双手模式：左半边只调视角；右半边只转上/中/下层，避免两套手势互相抢。
-    if (!isRightTurnZone(event)) {
-      gesture = null;
-      controls.enabled = true;
-      return;
-    }
-
-    const group = getCubeGroup?.();
-    if (!group?.twistLayer) return;
-
-    gesture = {
-      pointerId: event.pointerId,
-      startX: event.clientX,
-      startY: event.clientY,
-      layer: pickLayer(event),
-      triggered: false,
-    };
-    controls.enabled = false;
-    controls.autoRotate = false;
-    domElement.setPointerCapture?.(event.pointerId);
-    event.preventDefault();
-    event.stopImmediatePropagation?.();
-  };
-
-  const onPointerMove = (event) => {
-    if (!gesture || gesture.pointerId !== event.pointerId || gesture.triggered) return;
-
-    const dx = event.clientX - gesture.startX;
-    const dy = event.clientY - gesture.startY;
-    if (Math.hypot(dx, dy) < dragThreshold) return;
-
-    // 右侧像“推层”：按起点高度锁定上/中/下层；横向滑动决定方向。
-    const dir = dx >= 0 ? 1 : -1;
-    getCubeGroup?.()?.twistLayer?.('y', gesture.layer, dir);
-    gesture.triggered = true;
-    event.preventDefault();
-    event.stopImmediatePropagation?.();
-  };
-
-  const onPointerEnd = (event) => {
-    if (gesture?.pointerId === event.pointerId) {
-      gesture = null;
-      controls.enabled = true;
-      domElement.releasePointerCapture?.(event.pointerId);
-    }
-  };
-
-  domElement.addEventListener('pointerdown', onPointerDown, { passive: false, capture: true });
-  domElement.addEventListener('pointermove', onPointerMove, { passive: false, capture: true });
-  domElement.addEventListener('pointerup', onPointerEnd, { passive: true, capture: true });
-  domElement.addEventListener('pointercancel', onPointerEnd, { passive: true, capture: true });
-  domElement.addEventListener('pointerleave', onPointerEnd, { passive: true, capture: true });
-
-  return () => {
-    domElement.removeEventListener('pointerdown', onPointerDown, { capture: true });
-    domElement.removeEventListener('pointermove', onPointerMove, { capture: true });
-    domElement.removeEventListener('pointerup', onPointerEnd, { capture: true });
-    domElement.removeEventListener('pointercancel', onPointerEnd, { capture: true });
-    domElement.removeEventListener('pointerleave', onPointerEnd, { capture: true });
-    controls.enabled = true;
-  };
 }
 
 function disposeObject3D(object) {

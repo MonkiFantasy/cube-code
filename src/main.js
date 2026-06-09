@@ -868,7 +868,6 @@ if (geneColorPicker) {
 
 // Save cross net as image
 let rubikLaneGesture = null;
-let suppressRubikLaneClick = false;
 
 function triggerRubikHorizontalLayer(layer, dx) {
   if (!cube3d?.twistLayer || !Number.isFinite(layer) || dx === 0) return;
@@ -896,7 +895,6 @@ rubikControls?.addEventListener('pointermove', (event) => {
   const dy = event.clientY - rubikLaneGesture.startY;
   if (Math.abs(dx) < 30 || Math.abs(dx) < Math.abs(dy) * 1.2) return;
   rubikLaneGesture.triggered = true;
-  suppressRubikLaneClick = true;
   event.preventDefault();
   triggerRubikHorizontalLayer(rubikLaneGesture.layer, dx);
 });
@@ -914,12 +912,8 @@ rubikControls?.addEventListener('pointerleave', clearRubikLaneGesture);
 rubikControls?.addEventListener('click', (event) => {
   const lane = event.target.closest?.('.rubik-layer-lane');
   if (lane) {
-    if (suppressRubikLaneClick) {
-      suppressRubikLaneClick = false;
-      return;
-    }
-    // Tap is a rightward nudge; horizontal swipes above remain the primary path.
-    triggerRubikHorizontalLayer(Number(lane.dataset.rubikLayer), 1);
+    // Lanes are swipe-only. Taps used to nudge right, but that made mobile
+    // control feel accidental and could look like duplicate turns after a swipe.
     return;
   }
 
