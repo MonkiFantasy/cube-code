@@ -81,6 +81,7 @@
         <button id="btn-cross" data-i18n="viewCross">十字展开图</button>
         <button id="btn-single" data-i18n="viewSingle">逐面查看</button>
         <button id="btn-save" data-i18n="saveImage">保存图片</button>
+        <button id="btn-sticker-pack" data-i18n="stickerPack">三阶魔方贴纸</button>
         <details class="toolbar-more">
           <summary data-i18n="displayOptions">外观/高级</summary>
           <label class="net-layout-selector">
@@ -124,6 +125,46 @@
           <button id="snap-bottom" data-face="bottom" data-i18n="faceBottom">下</button>
           <button id="snap-left" data-face="left" data-i18n="faceLeft">左</button>
           <button id="snap-right" data-face="right" data-i18n="faceRight">右</button>
+        </div>
+        <div id="rubik-controls" class="rubik-controls" hidden>
+          <div class="rubik-controls-head">
+            <strong data-i18n="rubikTurns">真实拖拽</strong>
+            <span data-i18n="rubikTurnHint">拖空白处转视角；拖魔方面转动一层</span>
+          </div>
+          <div class="rubik-hand-guide" aria-hidden="true">
+            <div class="rubik-hand-zone rubik-hand-zone-left">
+              <span data-i18n="rubikLeftHand">空白处：转视角</span>
+            </div>
+            <div class="rubik-hand-zone rubik-hand-zone-right">
+              <span data-i18n="rubikRightHand">魔方面：转一层</span>
+            </div>
+          </div>
+          <div class="rubik-layer-pad" role="group" aria-label="Rubik helper layer controls">
+            <button type="button" class="rubik-layer-lane" data-rubik-layer="1">
+              <span data-i18n="rubikLayerTop">上层</span><small>← / →</small>
+            </button>
+            <button type="button" class="rubik-layer-lane" data-rubik-layer="0">
+              <span data-i18n="rubikLayerMiddle">中层</span><small>← / →</small>
+            </button>
+            <button type="button" class="rubik-layer-lane" data-rubik-layer="-1">
+              <span data-i18n="rubikLayerBottom">下层</span><small>← / →</small>
+            </button>
+          </div>
+          <details class="rubik-debug-turns">
+            <summary data-i18n="rubikMoreTurns">更多按钮</summary>
+            <div class="rubik-turn-grid" role="group" aria-label="Rubik layer turns">
+              <button type="button" class="rubik-turn-btn" data-turn="U">U</button>
+              <button type="button" class="rubik-turn-btn" data-turn="D">D</button>
+              <button type="button" class="rubik-turn-btn" data-turn="L">L</button>
+              <button type="button" class="rubik-turn-btn" data-turn="R">R</button>
+              <button type="button" class="rubik-turn-btn" data-turn="F">F</button>
+              <button type="button" class="rubik-turn-btn" data-turn="B">B</button>
+            </div>
+          </details>
+          <div class="rubik-actions">
+            <button type="button" class="rubik-reverse-btn" data-rubik-action="reverse" data-i18n="rubikReverse">反向</button>
+            <button type="button" class="rubik-scramble-btn" data-rubik-action="scramble" data-i18n="rubikScramble">随机打乱</button>
+          </div>
         </div>
       </div>
       <div id="cross-container" style="display:none"></div>

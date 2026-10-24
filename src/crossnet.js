@@ -95,7 +95,8 @@ export function renderCrossNet(container, qrCanvases, { mode = 'colorful', layou
   grid.style.gridTemplateColumns = `repeat(${net.cols}, 1fr)`;
   grid.style.gridTemplateRows = `repeat(${net.rows}, 1fr)`;
   grid.style.aspectRatio = `${net.cols} / ${net.rows}`;
-  if (mode === 'inverted') grid.classList.add('inverted');
+  const isInverted = mode === 'inverted' || mode === 'inverted-colorful';
+  if (isInverted) grid.classList.add('inverted');
 
   for (const { face, row, col } of net.cells) {
     const cell = document.createElement('div');
@@ -138,7 +139,8 @@ export function renderCrossNetCanvas(qrCanvases, { cellSize = 512, mode = 'color
   canvas.height = net.rows * cellSize + (net.rows - 1) * gap;
   const ctx = canvas.getContext('2d');
 
-  ctx.fillStyle = mode === 'inverted' ? '#1a1a1a' : '#f5f5f5';
+  const isInverted = mode === 'inverted' || mode === 'inverted-colorful';
+  ctx.fillStyle = isInverted ? '#1a1a1a' : '#f5f5f5';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   for (const { face, row, col } of net.cells) {
@@ -150,7 +152,7 @@ export function renderCrossNetCanvas(qrCanvases, { cellSize = 512, mode = 'color
       ctx.drawImage(qrCanvas, x, y, cellSize, cellSize);
     }
 
-    ctx.fillStyle = mode === 'inverted' ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.3)';
+    ctx.fillStyle = isInverted ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.3)';
     ctx.font = `bold ${Math.floor(cellSize * 0.06)}px sans-serif`;
     ctx.textAlign = 'right';
     ctx.textBaseline = 'bottom';

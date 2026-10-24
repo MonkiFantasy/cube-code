@@ -4,11 +4,13 @@ import { DATA_TYPE_URL, decodeCubeCode } from './decoder.js';
 import { renderCrossNet, downloadCrossNet } from './crossnet.js';
 import { t, toggleLang } from './i18n/index.js';
 import { getExternalUrlInfo, isSafeUrlOrDeepLink } from './url-utils.js';
+import { extractFaceIdFromPayload, replaceScannedPayloadBatch, resetScannedPayloads, upsertScannedPayload } from './scan-state.js';
 
 let encoderModulePromise = null;
 let cube3dModulePromise = null;
 let scannerModulePromise = null;
 let quickscanModulePromise = null;
+let stickerPackModulePromise = null;
 
 function loadEncoderModule() {
   encoderModulePromise ||= import('./encoder.js');
@@ -30,6 +32,11 @@ function loadQuickscanModule() {
   return quickscanModulePromise;
 }
 
+function loadStickerPackModule() {
+  stickerPackModulePromise ||= import('./sticker-pack.js');
+  return stickerPackModulePromise;
+}
+
 let cube3d = null;
 let qrCanvases = [];
 let showCross = false;
@@ -38,8 +45,8 @@ let plainScanMode = false;
 let colorMode = 'colorful'; // 'colorful' | 'bw' | 'inverted' | 'inverted-colorful'
 const COLOR_MODES = ['colorful', 'bw', 'inverted', 'inverted-colorful'];
 const COLOR_MODE_KEYS = { colorful: 'modeColorful', bw: 'modeBW', inverted: 'modeInverted', 'inverted-colorful': 'modeInvertedColorful' };
-const MATERIAL_MODES = ['standard', 'glass', 'gene'];
-const MATERIAL_MODE_KEYS = { standard: 'standardMaterial', glass: 'glassMaterial', gene: 'geneMaterial' };
+const MATERIAL_MODES = ['standard', 'glass', 'rubik', 'gene'];
+const MATERIAL_MODE_KEYS = { standard: 'standardMaterial', glass: 'glassMaterial', rubik: 'rubikMaterial', gene: 'geneMaterial' };
 let singleFaceIdx = 0;
 let showSingle = false;
 let currentIcon = null;
@@ -106,6 +113,7 @@ async function reencodeCurrent() {
     cubeEl.innerHTML = '';
     const { createCube } = await loadCube3dModule();
     cube3d = createCube(cubeEl, qrCanvases, { materialMode, geneColor });
+      updateRubikControls();
   }
 }
 
@@ -434,6 +442,7 @@ if (import.meta.env.DEV) {
   window.__cubeCodeTestHooks = {
     showPwaUpdatePrompt,
     showExternalLinkConfirm,
+    shouldUsePwaOfflineBanner,
   };
 }
 
@@ -444,17 +453,44 @@ document.getElementById('lang-switch').addEventListener('click', () => {
 
 applyLang();
 updateCapacityHint();
-checkNetworkReachable();
+setupPwaOfflineBanner();
 
 document.getElementById('input-data').addEventListener('input', updateCapacityHint);
 
-window.addEventListener('online', () => checkNetworkReachable());
-window.addEventListener('offline', () => setOfflineState(true));
-document.getElementById('offline-retry')?.addEventListener('click', () => {
-  checkNetworkReachable({ reloadOnSuccess: true });
-});
+function setupPwaOfflineBanner() {
+  if (!shouldUsePwaOfflineBanner()) {
+    setOfflineState(false);
+    return;
+  }
 
-window.setInterval(() => checkNetworkReachable(), 15000);
+  checkNetworkReachable();
+  window.addEventListener('online', () => checkNetworkReachable());
+  window.addEventListener('offline', () => setOfflineState(true));
+  document.getElementById('offline-retry')?.addEventListener('click', () => {
+    checkNetworkReachable({ reloadOnSuccess: true });
+  });
+  window.setInterval(() => checkNetworkReachable(), 15000);
+}
+
+function shouldUsePwaOfflineBanner() {
+  // The in-app offline banner is only useful for an installed browser PWA.
+  // In Capacitor's Android WebView all assets are bundled locally; probing a
+  // fake network URL can fail on launch and incorrectly report "offline".
+  if (isCapacitorNativeShell()) return false;
+  return isInstalledPwa();
+}
+
+function isCapacitorNativeShell() {
+  return Boolean(window.Capacitor)
+    || window.location.protocol === 'capacitor:'
+    || window.location.protocol === 'ionic:';
+}
+
+function isInstalledPwa() {
+  return window.matchMedia?.('(display-mode: standalone)').matches
+    || window.matchMedia?.('(display-mode: fullscreen)').matches
+    || window.navigator.standalone === true;
+}
 
 function setOfflineState(isOffline) {
   const banner = document.getElementById('offline-banner');
@@ -544,6 +580,7 @@ document.querySelectorAll('.face-nav button').forEach((btn) => {
 const btnEncode = document.getElementById('btn-encode');
 const btnCross = document.getElementById('btn-cross');
 const btnSave = document.getElementById('btn-save');
+const btnStickerPack = document.getElementById('btn-sticker-pack');
 const btnSingle = document.getElementById('btn-single');
 const toolbar = document.getElementById('encode-toolbar');
 const cubeContainer = document.getElementById('cube-container');
@@ -553,6 +590,7 @@ const singleQr = document.getElementById('single-qr');
 const faceCounter = document.getElementById('face-counter');
 const btnPrev = document.getElementById('btn-prev');
 const btnNext = document.getElementById('btn-next');
+const rubikControls = document.getElementById('rubik-controls');
 
 btnEncode.addEventListener('click', async () => {
   const input = document.getElementById('input-data').value.trim();
@@ -561,6 +599,7 @@ btnEncode.addEventListener('click', async () => {
   const output = document.getElementById('qr-output');
   output.innerHTML = t('generating');
   cubeContainer.style.display = 'none';
+  updateRubikControls();
   crossContainer.style.display = 'none';
   singleContainer.style.display = 'none';
   toolbar.style.display = 'none';
@@ -585,6 +624,7 @@ btnEncode.addEventListener('click', async () => {
     }
 
     renderEncodedResults(results);
+    updateRubikControls();
 
     toolbar.style.display = 'flex';
 
@@ -604,6 +644,10 @@ btnEncode.addEventListener('click', async () => {
 });
 
 // Single face view
+function updateRubikControls() {
+  if (rubikControls) rubikControls.hidden = materialMode !== 'rubik' || qrCanvases.length === 0 || cubeContainer.style.display === 'none';
+}
+
 function renderSingleFace() {
   if (qrCanvases.length === 0) return;
   singleQr.innerHTML = '';
@@ -618,7 +662,18 @@ function renderSingleFace() {
   btnNext.disabled = singleFaceIdx === qrCanvases.length - 1;
 }
 
-btnSingle.addEventListener('click', () => {
+async function renderCubeView() {
+  if (qrCanvases.length === 0) return;
+  if (cube3d) { cube3d.dispose(); cube3d = null; }
+  cubeContainer.style.display = 'block';
+  updateRubikControls();
+  const cubeEl = document.getElementById('cube-3d');
+  cubeEl.innerHTML = '';
+  const { createCube } = await loadCube3dModule();
+  cube3d = createCube(cubeEl, qrCanvases, { materialMode, geneColor });
+}
+
+btnSingle.addEventListener('click', async () => {
   showSingle = !showSingle;
   btnSingle.classList.toggle('active', showSingle);
 
@@ -627,6 +682,7 @@ btnSingle.addEventListener('click', () => {
     btnCross.classList.remove('active');
     if (cube3d) { cube3d.dispose(); cube3d = null; }
     cubeContainer.style.display = 'none';
+    updateRubikControls();
     crossContainer.style.display = 'none';
     singleContainer.style.display = 'flex';
     document.getElementById('qr-output').style.display = 'none';
@@ -638,7 +694,7 @@ btnSingle.addEventListener('click', () => {
     if (showCross) {
       crossContainer.style.display = 'block';
     } else {
-      cubeContainer.style.display = 'block';
+      await renderCubeView();
     }
   }
 });
@@ -664,15 +720,12 @@ btnCross.addEventListener('click', async () => {
   if (showCross) {
     if (cube3d) { cube3d.dispose(); cube3d = null; }
     cubeContainer.style.display = 'none';
+    updateRubikControls();
     crossContainer.style.display = 'block';
     renderCrossNet(crossContainer, qrCanvases, { mode: getEncodeOptions().mode, layout: netLayout });
   } else {
     crossContainer.style.display = 'none';
-    cubeContainer.style.display = 'block';
-    const cubeEl = document.getElementById('cube-3d');
-    cubeEl.innerHTML = '';
-    const { createCube } = await loadCube3dModule();
-    cube3d = createCube(cubeEl, qrCanvases, { materialMode, geneColor });
+    await renderCubeView();
   }
 });
 
@@ -778,6 +831,7 @@ btnMaterial.addEventListener('click', async () => {
   materialMode = MATERIAL_MODES[(idx + 1) % MATERIAL_MODES.length];
   btnMaterial.textContent = t(MATERIAL_MODE_KEYS[materialMode]);
   btnMaterial.classList.toggle('active', materialMode !== 'standard');
+  updateRubikControls();
 
   // Show/hide gene color picker
   const geneColorPicker = document.getElementById('gene-color-picker');
@@ -813,9 +867,80 @@ if (geneColorPicker) {
 }
 
 // Save cross net as image
+let rubikLaneGesture = null;
+
+function triggerRubikHorizontalLayer(layer, dx) {
+  if (!cube3d?.twistLayer || !Number.isFinite(layer) || dx === 0) return;
+  cube3d.twistLayer('y', layer, dx > 0 ? 1 : -1);
+}
+
+rubikControls?.addEventListener('pointerdown', (event) => {
+  const lane = event.target.closest?.('.rubik-layer-lane');
+  if (!lane) return;
+  rubikLaneGesture = {
+    pointerId: event.pointerId,
+    startX: event.clientX,
+    startY: event.clientY,
+    layer: Number(lane.dataset.rubikLayer),
+    lane,
+    triggered: false,
+  };
+  lane.classList.add('is-swiping');
+  lane.setPointerCapture?.(event.pointerId);
+});
+
+rubikControls?.addEventListener('pointermove', (event) => {
+  if (!rubikLaneGesture || rubikLaneGesture.pointerId !== event.pointerId || rubikLaneGesture.triggered) return;
+  const dx = event.clientX - rubikLaneGesture.startX;
+  const dy = event.clientY - rubikLaneGesture.startY;
+  if (Math.abs(dx) < 30 || Math.abs(dx) < Math.abs(dy) * 1.2) return;
+  rubikLaneGesture.triggered = true;
+  event.preventDefault();
+  triggerRubikHorizontalLayer(rubikLaneGesture.layer, dx);
+});
+
+function clearRubikLaneGesture(event) {
+  if (!rubikLaneGesture || (event && rubikLaneGesture.pointerId !== event.pointerId)) return;
+  rubikLaneGesture.lane?.classList.remove('is-swiping');
+  rubikLaneGesture = null;
+}
+
+rubikControls?.addEventListener('pointerup', clearRubikLaneGesture);
+rubikControls?.addEventListener('pointercancel', clearRubikLaneGesture);
+rubikControls?.addEventListener('pointerleave', clearRubikLaneGesture);
+
+rubikControls?.addEventListener('click', (event) => {
+  const lane = event.target.closest?.('.rubik-layer-lane');
+  if (lane) {
+    // Lanes are swipe-only. Taps used to nudge right, but that made mobile
+    // control feel accidental and could look like duplicate turns after a swipe.
+    return;
+  }
+
+  const turnButton = event.target.closest('button[data-turn]');
+  if (turnButton && cube3d?.twist) {
+    cube3d.twist(turnButton.dataset.turn);
+    return;
+  }
+
+  const actionButton = event.target.closest('button[data-rubik-action]');
+  if (actionButton?.dataset.rubikAction === 'scramble' && cube3d?.scramble) {
+    cube3d.scramble(20);
+  } else if (actionButton?.dataset.rubikAction === 'reverse' && cube3d?.reverseLastTwist) {
+    cube3d.reverseLastTwist();
+  }
+});
+
+
 btnSave.addEventListener('click', () => {
   if (qrCanvases.length === 0) return;
   downloadCrossNet(qrCanvases, getEncodeOptions().mode, netLayout);
+});
+
+btnStickerPack.addEventListener('click', async () => {
+  if (qrCanvases.length === 0) return;
+  const { downloadStickerPack } = await loadStickerPackModule();
+  downloadStickerPack(qrCanvases);
 });
 
 // --- Decode ---
@@ -850,8 +975,8 @@ function setPlainScanMode(enabled) {
     quickScanMode = false;
   }
   updateDecodeModeUi();
-  clearDecodedOutput();
-  if (scanner) { scanner.stop(); scanner = null; }
+  resetScanState({ resetScanner: false });
+  stopCamera();
   startCamera(quickScanMode);
 }
 
@@ -879,8 +1004,9 @@ btnScanMode.addEventListener('click', () => {
   quickScanMode = !quickScanMode;
   updateDecodeModeUi();
 
-  // Restart scanner with new mode
-  if (scanner) { scanner.stop(); scanner = null; }
+  // Restart scanner with new mode and avoid mixing faces from the previous mode.
+  resetScanState({ resetScanner: false });
+  stopCamera();
   startCamera(quickScanMode);
 });
 
@@ -934,12 +1060,18 @@ fileInput.addEventListener('change', (e) => {
     const { scanCrossNet } = await loadQuickscanModule();
     const result = scanCrossNet(canvas);
 
+    // Uploading an image is treated as a fresh batch scan, even if no face is
+    // found. Otherwise old scan dots/count can make a failed upload look like
+    // it contributed data.
+    resetScanState({ resetScanner: false });
+
     if (result.found > 0) {
-      for (const [faceId, payload] of result.payloads) {
-        if (!scannedPayloads.some((p) => extractFaceId(p) === faceId)) {
-          scannedPayloads.push(payload);
-        }
-      }
+      // Uploading an image is treated as a fresh batch scan. Otherwise a second
+      // uploaded net with the same face ids would be deduplicated against the
+      // previous result and the decoded text would appear stuck until users
+      // manually press "重新扫描". Camera scanning still keeps incremental
+      // one-face-at-a-time behavior.
+      replaceScannedPayloadBatch(scannedPayloads, result.payloads);
       updateScanCount();
 
       // Auto-decode if all faces found
@@ -962,12 +1094,16 @@ fileInput.addEventListener('change', (e) => {
 
 // Decode button
 btnReset.addEventListener('click', () => {
-  scannedPayloads.length = 0;
+  resetScanState();
+});
+
+function resetScanState({ resetScanner = true } = {}) {
+  resetScannedPayloads(scannedPayloads);
   document.getElementById('scan-count').textContent = `0 / ${numFaces}`;
   clearDecodedOutput();
   document.querySelectorAll('.face-dot').forEach((d) => d.classList.remove('scanned'));
-  if (scanner) { scanner.reset(); }
-});
+  if (resetScanner && scanner) { scanner.reset(); }
+}
 
 btnDecode.addEventListener('click', () => {
   const output = document.getElementById('decoded-output');
@@ -989,56 +1125,75 @@ btnDecode.addEventListener('click', () => {
 });
 
 const observer = new MutationObserver(() => {
-  if (decodeSection.classList.contains('active') && !scanner) {
-    startCamera(quickScanMode);
+  if (decodeSection.classList.contains('active')) {
+    if (!scanner) startCamera(quickScanMode);
+  } else {
+    stopCamera();
   }
 });
 observer.observe(decodeSection, { attributes: true, attributeFilter: ['class'] });
 
+let scannerStartToken = 0;
+
+function stopCamera() {
+  scannerStartToken += 1;
+  if (scanner) {
+    scanner.stop();
+    scanner = null;
+  }
+}
+
 async function startCamera(quick = false) {
+  const token = scannerStartToken + 1;
+  scannerStartToken = token;
   const video = document.getElementById('camera-feed');
   const canvas = document.getElementById('scan-canvas');
 
   try {
     const { startScanner } = await loadScannerModule();
-    scanner = startScanner(video, canvas, (_payloadBytes, faceId) => {
+    if (token !== scannerStartToken || !decodeSection.classList.contains('active')) return;
+
+    const nextScanner = startScanner(video, canvas, (_payloadBytes, faceId) => {
       if (plainScanMode) {
         renderPlainQrOutput(document.getElementById('decoded-output'), _payloadBytes);
         return;
       }
 
-      // Deduplicate by faceId
-      if (!scannedPayloads.some((p) => extractFaceId(p) === faceId)) {
-        scannedPayloads.push(_payloadBytes);
-        updateScanCount();
+      const change = upsertScannedPayload(scannedPayloads, faceId, _payloadBytes);
+      if (change === 'unchanged') return;
 
-        // Auto-decode when all 6 faces found
-        if (scannedPayloads.length >= numFaces) {
-          const decoded = decodeCubeCode(scannedPayloads, numFaces);
-          if (decoded.success) {
-            renderDecodedOutput(document.getElementById('decoded-output'), decoded);
-          }
+      updateScanCount();
+
+      // Auto-decode when all 6 faces found
+      if (scannedPayloads.length >= numFaces) {
+        const decoded = decodeCubeCode(scannedPayloads, numFaces);
+        if (decoded.success) {
+          renderDecodedOutput(document.getElementById('decoded-output'), decoded);
+        } else if (change === 'replaced') {
+          clearDecodedOutput();
         }
       }
     }, { quick, plain: plainScanMode });
+
+    if (token !== scannerStartToken || !decodeSection.classList.contains('active')) {
+      nextScanner.stop();
+      return;
+    }
+    scanner = nextScanner;
   } catch (err) {
-    showToast(`${t('cameraError')}: ${err.message}`, 'error');
+    if (token === scannerStartToken && decodeSection.classList.contains('active')) {
+      showToast(`${t('cameraError')}: ${err.message}`, 'error');
+    }
   }
 }
 
 function updateScanCount() {
   document.getElementById('scan-count').textContent = `${scannedPayloads.length} / ${numFaces}`;
 
+  document.querySelectorAll('.face-dot').forEach((d) => d.classList.remove('scanned'));
   for (const payload of scannedPayloads) {
-    const faceId = extractFaceId(payload);
+    const faceId = extractFaceIdFromPayload(payload);
     const dot = document.querySelector(`.face-dot[data-face="${faceId}"]`);
     if (dot) dot.classList.add('scanned');
   }
-}
-
-function extractFaceId(payloadBytes) {
-  const bits = Array.from(payloadBytes)
-    .map((b) => b.toString(2).padStart(8, '0'))
-    .join('');
-  return parseInt(bits.slice(0, 3), 2);
 }

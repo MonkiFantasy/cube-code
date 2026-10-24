@@ -30,15 +30,12 @@ const FACE_COLORS_INVERTED = [
 
 // Inverted colorful: white modules on colored backgrounds
 const FACE_COLORS_INVERTED_COLORFUL = [
-  // Keep backgrounds intentionally dark: white-on-bright colors looks nice
-  // but is unreliable for camera decoders. These hues preserve the theme
-  // while keeping enough luminance contrast for jsQR/phone scanners.
-  { dark: '#ffffff', light: '#400000' }, // face1: white on deep red
-  { dark: '#ffffff', light: '#401000' }, // face2: white on deep orange
-  { dark: '#ffffff', light: '#101010' }, // face3: white on black gray
-  { dark: '#ffffff', light: '#281800' }, // face4: white on deep amber
-  { dark: '#ffffff', light: '#002000' }, // face5: white on deep green
-  { dark: '#ffffff', light: '#001030' }, // face6: white on deep blue
+  { dark: '#ffffff', light: '#B71234' }, // face1: white on red
+  { dark: '#ffffff', light: '#CC7700' }, // face2: white on orange
+  { dark: '#ffffff', light: '#505050' }, // face3: white on dark gray
+  { dark: '#ffffff', light: '#B8860B' }, // face4: white on amber/yellow
+  { dark: '#ffffff', light: '#009B48' }, // face5: white on green
+  { dark: '#ffffff', light: '#0046AD' }, // face6: white on blue
 ];
 
 const GENE_QR_COLORS = {

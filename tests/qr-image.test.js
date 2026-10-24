@@ -110,7 +110,16 @@ function drawSyntheticIcon(rgba, size) {
 }
 
 function readQr(image) {
-  return jsQR(image.data, image.width, image.height, { inversionAttempts: 'attemptBoth' });
+  const code = jsQR(image.data, image.width, image.height, { inversionAttempts: 'attemptBoth' });
+  if (code) return code;
+  const inverted = new Uint8ClampedArray(image.data.length);
+  for (let i = 0; i < image.data.length; i += 4) {
+    inverted[i] = 255 - image.data[i];
+    inverted[i + 1] = 255 - image.data[i + 1];
+    inverted[i + 2] = 255 - image.data[i + 2];
+    inverted[i + 3] = image.data[i + 3];
+  }
+  return jsQR(inverted, image.width, image.height, { inversionAttempts: 'attemptBoth' });
 }
 
 function buildCubeQrImages(data, {

@@ -15,15 +15,28 @@ export function startScanner(videoEl, canvasEl, onScan, opts = {}) {
   let animId = null;
   let stream = null;
   let scanning = true;
-  const seen = new Set(); // tracks base64 strings already processed
-  const seenFaces = new Set(); // tracks faceIds already found
+  const seenAt = new Map(); // QR text -> last processed timestamp
+  const seenCooldownMs = opts.plain ? 1200 : 450;
 
   async function init() {
-    stream = await navigator.mediaDevices.getUserMedia({
+    const mediaStream = await navigator.mediaDevices.getUserMedia({
       video: { facingMode: 'environment', width: 640, height: 480 },
     });
+
+    if (!scanning) {
+      mediaStream.getTracks().forEach((t) => t.stop());
+      return;
+    }
+
+    stream = mediaStream;
     videoEl.srcObject = stream;
     await videoEl.play();
+
+    if (!scanning) {
+      stream.getTracks().forEach((t) => t.stop());
+      return;
+    }
+
     canvasEl.width = videoEl.videoWidth || 640;
     canvasEl.height = videoEl.videoHeight || 480;
     tick();
@@ -48,19 +61,24 @@ export function startScanner(videoEl, canvasEl, onScan, opts = {}) {
     animId = requestAnimationFrame(tick);
   }
 
-  function tryDecodeQR(imageData, w, h) {
-    const code = jsQR(imageData.data, w, h);
-    if (code && code.data && !seen.has(code.data)) {
-      seen.add(code.data);
-      if (opts.plain) {
-        onScan(code.data, null);
-        return;
+  function decodeData(data, w, h) {
+    let code = jsQR(data, w, h);
+    if (!code?.data) {
+      const inv = new Uint8ClampedArray(data.length);
+      for (let i = 0; i < data.length; i += 4) {
+        inv[i] = 255 - data[i];
+        inv[i + 1] = 255 - data[i + 1];
+        inv[i + 2] = 255 - data[i + 2];
+        inv[i + 3] = data[i + 3];
       }
-      const result = decodePayload(code.data);
-      if (result) {
-        onScan(result.bytes, result.faceId);
-      }
+      code = jsQR(inv, w, h);
     }
+    return code;
+  }
+
+  function tryDecodeQR(imageData, w, h) {
+    const code = decodeData(imageData.data, w, h);
+    handleDecodedCode(code);
   }
 
   function scanRegions(imageData, w, h) {
@@ -75,20 +93,36 @@ export function startScanner(videoEl, canvasEl, onScan, opts = {}) {
         const x = c * cellW;
         const y = r * cellH;
         const regionData = extractRegion(imageData, x, y, cellW, cellH);
-        const code = jsQR(regionData.data, cellW, cellH);
-        if (code && code.data && !seen.has(code.data)) {
-          seen.add(code.data);
-          if (opts.plain) {
-            onScan(code.data, null);
-            continue;
-          }
-          const result = decodePayload(code.data);
-          if (result) {
-            onScan(result.bytes, result.faceId);
-          }
-        }
+        const code = decodeData(regionData.data, cellW, cellH);
+        handleDecodedCode(code);
       }
     }
+  }
+
+  function handleDecodedCode(code) {
+    if (!code?.data || isCoolingDown(code.data)) return;
+
+    if (opts.plain) {
+      onScan(code.data, null);
+      return;
+    }
+
+    const result = decodePayload(code.data);
+    if (result) {
+      onScan(result.bytes, result.faceId);
+    }
+  }
+
+  function isCoolingDown(data) {
+    const now = Date.now();
+    const lastSeen = seenAt.get(data) || 0;
+    if (now - lastSeen < seenCooldownMs) return true;
+    seenAt.set(data, now);
+
+    for (const [value, time] of seenAt) {
+      if (now - time > seenCooldownMs * 4) seenAt.delete(value);
+    }
+    return false;
   }
 
   function decodePayload(base64Str) {
@@ -96,8 +130,7 @@ export function startScanner(videoEl, canvasEl, onScan, opts = {}) {
       const bytes = base64ToBytes(base64Str);
       const bits = Array.from(bytes).map((b) => b.toString(2).padStart(8, '0')).join('');
       const faceId = parseInt(bits.slice(0, 3), 2);
-      if (faceId >= 1 && faceId <= 6 && !seenFaces.has(faceId)) {
-        seenFaces.add(faceId);
+      if (faceId >= 1 && faceId <= 6) {
         return { bytes, faceId };
       }
     } catch {
@@ -134,8 +167,7 @@ export function startScanner(videoEl, canvasEl, onScan, opts = {}) {
   return {
     stop,
     reset() {
-      seen.clear();
-      seenFaces.clear();
+      seenAt.clear();
     },
   };
 }

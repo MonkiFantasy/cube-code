@@ -58,7 +58,7 @@
 - PWA 新版本提示条：发现新版本后可点击刷新更新。
 - 页面底部展示当前版本号和 Git 短 hash，方便确认 PWA 是否已更新到最新构建。
 - PWA 图标已重绘：`public/icon-192.png`, `public/icon-512.png`。
-- 应用内离线提示条：通过真实网络探测判断断网，断网时显示“离线魔方模式”（不再单纯依赖 `navigator.onLine`）。
+- 应用内离线提示条：仅在浏览器安装的 PWA 独立窗口中启用，通过真实网络探测判断断网；普通浏览器标签页和 Capacitor Android APK 不显示，避免本地壳启动时误报断网。
 - Android Capacitor 项目存在。
 - Android 长按 data URL 图片保存到相册。
 - GitHub Actions 有 CI、Android debug/release 构建。
