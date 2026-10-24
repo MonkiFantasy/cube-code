@@ -187,7 +187,11 @@ function scanKnownNetLayout(imageData, width, height, layoutName) {
  */
 export function scanSingle(source) {
   const { imageData, width, height } = getImageData(source);
-  const code = decodeQr(imageData, width, height);
+  let code = decodeQr(imageData, width, height);
+  if (!code?.data) {
+    const inv = invertImageData(imageData, width, height);
+    code = decodeQr(inv, width, height);
+  }
 
   if (code && code.data) {
     try {

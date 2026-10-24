@@ -61,8 +61,23 @@ export function startScanner(videoEl, canvasEl, onScan, opts = {}) {
     animId = requestAnimationFrame(tick);
   }
 
+  function decodeData(data, w, h) {
+    let code = jsQR(data, w, h);
+    if (!code?.data) {
+      const inv = new Uint8ClampedArray(data.length);
+      for (let i = 0; i < data.length; i += 4) {
+        inv[i] = 255 - data[i];
+        inv[i + 1] = 255 - data[i + 1];
+        inv[i + 2] = 255 - data[i + 2];
+        inv[i + 3] = data[i + 3];
+      }
+      code = jsQR(inv, w, h);
+    }
+    return code;
+  }
+
   function tryDecodeQR(imageData, w, h) {
-    const code = jsQR(imageData.data, w, h);
+    const code = decodeData(imageData.data, w, h);
     handleDecodedCode(code);
   }
 
@@ -78,7 +93,7 @@ export function startScanner(videoEl, canvasEl, onScan, opts = {}) {
         const x = c * cellW;
         const y = r * cellH;
         const regionData = extractRegion(imageData, x, y, cellW, cellH);
-        const code = jsQR(regionData.data, cellW, cellH);
+        const code = decodeData(regionData.data, cellW, cellH);
         handleDecodedCode(code);
       }
     }
